@@ -1,0 +1,183 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  name            String?
+  password        String
+  role            Role             @default(Viewer)
+  teams           Team[]
+  taskAssignments TaskAssignment[]
+  notifications   Notification[]
+  activityLogs    ActivityLog[]
+  sprints         Sprint[]
+  timeTracking    TimeTracking[]
+  apiKeys         ApiKey[]
+  webHooks        WebHook[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Team {
+  id              String           @id @default(cuid())
+  name            String
+  users           User[]
+  projects        Project[]
+  taskAssignments TaskAssignment[]
+  sprints         Sprint[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id              String           @id @default(cuid())
+  name            String
+  projectId       String
+  project         Project          @relation(fields: [projectId], references: [id])
+  taskAssignments TaskAssignment[]
+  subTasks        SubTask[]
+  timeTracking    TimeTracking[]
+  files           File[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model TaskAssignment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  teamId    String?
+  task      Task     @relation(fields: [taskId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  team      Team?    @relation(fields: [teamId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SubTask {
+  id        String   @id @default(cuid())
+  name      String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Sprint {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TimeTracking {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  startTime DateTime
+  endTime   DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TaskStatus {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model File {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  name            String
+  roles           Role[]
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       Role
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  key       String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WebHook {
+  id        String   @id @default(cuid())
+  url       String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  Admin
+  Manager
+  Developer
+  Viewer
+}
