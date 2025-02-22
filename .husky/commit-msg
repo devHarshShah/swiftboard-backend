@@ -1,0 +1,18 @@
+# Commit message validation
+commit_message_file=$1
+if [ ! -f "$commit_message_file" ]; then
+    echo "❌ Commit message file not found: $commit_message_file"
+    exit 1
+fi
+
+commit_message=$(cat "$commit_message_file" | sed -e 's/^[[:space:]]*//')
+matched_str=$(echo "$commit_message" | grep -E "^Merge.+|(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|types)(\(.+\))?!?: .+$")
+echo "Commit message: $commit_message"
+echo "Matched string: $matched_str"
+
+if [ "$matched_str" != "" ]; then
+    exit 0
+else
+    echo "Commit rejected due to incorrect commit message format. See commit standards here - https://www.conventionalcommits.org/en/v1.0.0/"
+    exit 1
+fi

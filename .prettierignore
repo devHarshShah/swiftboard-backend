@@ -1,0 +1,12 @@
+.next
+.github
+next-env.d.ts
+node_modules
+yarn.lock
+package-lock.json
+public
+components.json
+README.md
+.prettierrc
+eslint.config.mjs
+pnpm-lock.yaml
