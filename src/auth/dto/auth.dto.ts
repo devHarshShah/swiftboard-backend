@@ -56,7 +56,6 @@ export class SignupDto {
     description: 'Confirm password',
   })
   @IsString({ message: 'Confirm password must be a string' })
-  @IsString({ message: 'Confirm password must be a string' })
   @MinLength(6, { message: 'Confirm password must be at least 6 characters' })
   @Matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/, {
     message: 'Passwords do not match',
