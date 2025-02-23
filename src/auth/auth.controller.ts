@@ -1,11 +1,19 @@
-import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  HttpCode,
+  HttpStatus,
+  Req,
+  UseGuards,
+  Get,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from './decorators/public.decorator';
 import { LoginDto, SignupDto } from './dto';
-import { JwtRefreshStrategy } from './stratergy/jwt-refresh.stratergy';
-import { Req, UseGuards, Get } from '@nestjs/common';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { JwtRefreshGuard } from './guards/jwt-refresh.guards';
 
 @Controller('auth')
 @ApiTags('auth')
@@ -30,26 +38,39 @@ export class AuthController {
     return this.authService.signUp(signupDto);
   }
 
+  @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  @UseGuards(JwtRefreshStrategy)
-  refreshTokens(@Req() req) {
+  @ApiOperation({ summary: 'Refresh Access Token' })
+  @ApiResponse({ status: 200, description: 'New access token generated' })
+  @UseGuards(JwtRefreshGuard)
+  async refreshTokens(@Req() req) {
     return this.authService.refreshTokens(req.user.sub, req.user.refreshToken);
   }
 
+  @Public()
+  @HttpCode(HttpStatus.OK)
   @Get('google')
+  @ApiOperation({ summary: 'Google OAuth2 Authentication' })
   @UseGuards(GoogleAuthGuard)
   async googleAuth() {
     // Redirects to Google for authentication
   }
 
+  @Public()
+  @HttpCode(HttpStatus.OK)
   @Get('google/callback')
+  @ApiOperation({ summary: 'Google OAuth2 Callback' })
+  @ApiResponse({ status: 200, description: 'Google authentication successful' })
   @UseGuards(GoogleAuthGuard)
-  googleAuthRedirect(@Req() req) {
+  async googleAuthRedirect(@Req() req) {
     return this.authService.googleLogin(req.user);
   }
 
+  @HttpCode(HttpStatus.OK)
   @Post('logout')
-  logout(@Req() req) {
+  @ApiOperation({ summary: 'User Logout' })
+  @ApiResponse({ status: 200, description: 'User logged out successfully' })
+  async logout(@Req() req) {
     return this.authService.logout(req.user.sub);
   }
 }
