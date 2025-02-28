@@ -68,6 +68,7 @@ model Task {
   subTasks        SubTask[]
   timeTracking    TimeTracking[]
   files           File[]
+  completed       Boolean          @default(false)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 }
@@ -89,6 +90,7 @@ model SubTask {
   name      String
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id])
+  completed Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

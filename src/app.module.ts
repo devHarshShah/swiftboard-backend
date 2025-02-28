@@ -6,6 +6,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ConfigModule } from '@nestjs/config';
 import { TeamsModule } from './teams/teams.module';
 import { ProjectsModule } from './projects/projects.module';
+import { TasksModule } from './tasks/tasks.module';
+import { SubtasksModule } from './subtasks/subtasks.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { ProjectsModule } from './projects/projects.module';
     }),
     TeamsModule,
     ProjectsModule,
+    TasksModule,
+    SubtasksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
