@@ -35,7 +35,6 @@ export class AuthService {
         name,
         password: hashedPassword,
         provider: 'LOCAL',
-        role: 'Viewer',
       },
     });
 
@@ -114,14 +113,18 @@ export class AuthService {
           email: user.email,
           name: user.firstName + ' ' + user.lastName,
           provider: 'GOOGLE',
-          role: 'Viewer',
         },
       });
     }
 
     const payload = { email: existingUser.email, sub: existingUser.id };
+    const accessToken = await this.jwtService.signAsync(payload, {
+      secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+      expiresIn: '15m',
+    });
+
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: accessToken,
       user: existingUser,
     };
   }
