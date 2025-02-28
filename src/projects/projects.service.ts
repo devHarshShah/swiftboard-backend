@@ -1,84 +1,99 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateProjectDto, UpdateProjectDto } from './dto/projects.dto';
+import { CreateTaskDto, UpdateTaskDto, AssignTaskDto } from './dto/tasks.dto';
 
 @Injectable()
 export class ProjectsService {
-  getAllProjects() {
-    return 'All projects';
+  constructor(private prismaService: PrismaService) {}
+
+  async getAllProjects() {
+    return await this.prismaService.project.findMany();
   }
 
-  getProjectById(projectId: string) {
-    return `Project with ID ${projectId}`;
+  async getProjectById(projectId: string) {
+    const project = await this.prismaService.project.findUnique({
+      where: { id: projectId },
+    });
+    if (!project) throw new NotFoundException('Project not found');
+    return project;
   }
 
-  createProject(createProjectDto: any) {
-    return `Project created with ${createProjectDto}`;
+  async createProject(createProjectDto: CreateProjectDto) {
+    return await this.prismaService.project.create({
+      data: createProjectDto,
+    });
   }
 
-  updateProject(projectId: string, updateProjectDto: any) {
-    return `Project with ID ${projectId} updated with ${updateProjectDto}`;
+  async updateProject(projectId: string, updateProjectDto: UpdateProjectDto) {
+    return await this.prismaService.project.update({
+      where: { id: projectId },
+      data: updateProjectDto,
+    });
   }
 
-  deleteProject(projectId: string) {
-    return `Project with ID ${projectId} deleted`;
+  async deleteProject(projectId: string) {
+    return await this.prismaService.project.delete({
+      where: { id: projectId },
+    });
   }
 
-  getAllTasksForProject(projectId: string) {
-    return `All tasks for project with ID ${projectId}`;
+  async getAllTasksForProject(projectId: string) {
+    return await this.prismaService.task.findMany({
+      where: { projectId },
+    });
   }
 
-  getTaskByIdForProject(projectId: string, taskId: string) {
-    return `Task with ID ${taskId} for project with ID ${projectId}`;
+  async getTaskByIdForProject(projectId: string, taskId: string) {
+    const task = await this.prismaService.task.findUnique({
+      where: { id: taskId },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    return task;
   }
 
-  createTaskForProject(projectId: string, createTaskDto: any) {
-    return `Task created for project with ID ${projectId} with ${createTaskDto}`;
+  async createTaskForProject(projectId: string, createTaskDto: CreateTaskDto) {
+    return await this.prismaService.task.create({
+      data: {
+        ...createTaskDto,
+        projectId,
+      },
+    });
   }
 
-  updateTaskForProject(projectId: string, taskId: string, updateTaskDto: any) {
-    return `Task with ID ${taskId} for project with ID ${projectId} updated with ${updateTaskDto}`;
+  async updateTaskForProject(
+    projectId: string,
+    taskId: string,
+    updateTaskDto: UpdateTaskDto,
+  ) {
+    return await this.prismaService.task.update({
+      where: { id: taskId },
+      data: updateTaskDto,
+    });
   }
 
-  deleteTaskForProject(projectId: string, taskId: string) {
-    return `Task with ID ${taskId} for project with ID ${projectId} deleted`;
+  async deleteTaskForProject(projectId: string, taskId: string) {
+    return await this.prismaService.task.delete({
+      where: { id: taskId },
+    });
   }
 
-  getAllMembersForProject(projectId: string) {
-    return `All members for project with ID ${projectId}`;
+  async assignTaskToUser(
+    projectId: string,
+    taskId: string,
+    assignTaskDto: AssignTaskDto,
+  ) {
+    return await this.prismaService.taskAssignment.create({
+      data: {
+        taskId,
+        userId: assignTaskDto.userId,
+      },
+    });
   }
 
-  getMemberForProject(projectId: string, memberId: string) {
-    return `Member with ID ${memberId} for project with ID ${projectId}`;
-  }
-
-  addMemberToProject(projectId: string, addMemberDto: any) {
-    return `Member added to project with ID ${projectId} with ${addMemberDto}`;
-  }
-
-  removeMemberFromProject(projectId: string, memberId: string) {
-    return `Member with ID ${memberId} removed from project with ID ${projectId}`;
-  }
-
-  getAllTeamsForProject(projectId: string) {
-    return `All teams for project with ID ${projectId}`;
-  }
-
-  getTeamForProject(projectId: string, teamId: string) {
-    return `Team with ID ${teamId} for project with ID ${projectId}`;
-  }
-
-  addTeamToProject(projectId: string, addTeamDto: any) {
-    return `Team added to project with ID ${projectId} with ${addTeamDto}`;
-  }
-
-  removeTeamFromProject(projectId: string, teamId: string) {
-    return `Team with ID ${teamId} removed from project with ID ${projectId}`;
-  }
-
-  assignTaskToUser(projectId: string, taskId: string, assignTaskDto: any) {
-    return `Task with ID ${taskId} assigned to user for project with ID ${projectId} with ${assignTaskDto}`;
-  }
-
-  unassignTaskFromUser(projectId: string, taskId: string) {
-    return `Task with ID ${taskId} removed from user for project with ID ${projectId}`;
+  async unassignTaskFromUser(projectId: string, taskId: string) {
+    return await this.prismaService.taskAssignment.deleteMany({
+      where: { taskId },
+    });
   }
 }
