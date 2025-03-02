@@ -38,9 +38,8 @@ export class SignupDto {
     description: 'Full name of the user',
     required: false,
   })
-  @IsOptional()
   @IsString({ message: 'Name must be a string' })
-  name?: string;
+  name: string;
 
   @ApiProperty({
     example: 'StrongPassword123',

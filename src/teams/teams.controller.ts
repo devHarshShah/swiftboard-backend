@@ -13,6 +13,7 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TeamsService } from './teams.service';
 import { AuthGuard } from '@nestjs/passport';
+import { GetUser } from '../users/decorators/user.decorator';
 
 @Controller('teams')
 @ApiTags('teams')
@@ -101,5 +102,16 @@ export class TeamsController {
   @ApiResponse({ status: 200, description: 'Returns all team tasks' })
   async getTeamTasks(@Param('id') teamId: string) {
     return this.teamService.getTeamTasks(teamId);
+  }
+
+  @Get('user/teams')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get all teams the user is part of' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns all teams the user is part of',
+  })
+  async getUserTeams(@GetUser() userId: string) {
+    return this.teamService.getUserTeams(userId);
   }
 }

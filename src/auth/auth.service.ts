@@ -123,8 +123,16 @@ export class AuthService {
       expiresIn: '15m',
     });
 
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: '7d',
+    });
+
+    const frontendUrl = this.configService.get<string>('FRONTEND_URL');
+    const redirectUrl = `${frontendUrl}/auth/redirect?accessToken=${accessToken}&refreshToken=${refreshToken}`;
+
     return {
-      access_token: accessToken,
+      redirectUrl,
       user: existingUser,
     };
   }

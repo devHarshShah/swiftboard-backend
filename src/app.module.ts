@@ -8,6 +8,7 @@ import { TeamsModule } from './teams/teams.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
 import { SubtasksModule } from './subtasks/subtasks.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { SubtasksModule } from './subtasks/subtasks.module';
     ProjectsModule,
     TasksModule,
     SubtasksModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -90,4 +90,11 @@ export class TeamsService {
     if (!fullTeam || !fullTeam.projects) return [];
     return fullTeam.projects.flatMap((project) => project.tasks);
   }
+
+  async getUserTeams(userId: string) {
+    return this.prisma.teamMembership.findMany({
+      where: { userId },
+      include: { team: true },
+    });
+  }
 }

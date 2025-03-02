@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Req,
+  Res,
   UseGuards,
   Get,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { Public } from './decorators/public.decorator';
 import { LoginDto, SignupDto } from './dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guards';
+import { Request, Response } from 'express';
 
 @Controller('auth')
 @ApiTags('auth')
@@ -62,8 +64,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Google OAuth2 Callback' })
   @ApiResponse({ status: 200, description: 'Google authentication successful' })
   @UseGuards(GoogleAuthGuard)
-  async googleAuthRedirect(@Req() req) {
-    return this.authService.googleLogin(req.user);
+  async googleAuthRedirect(@Req() req: Request, @Res() res: Response) {
+    const { redirectUrl } = await this.authService.googleLogin(req.user);
+    return res.redirect(redirectUrl);
   }
 
   @HttpCode(HttpStatus.OK)
