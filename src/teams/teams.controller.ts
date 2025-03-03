@@ -14,6 +14,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TeamsService } from './teams.service';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from '../users/decorators/user.decorator';
+import { CreateTeamDto } from './dto/team.dto';
 
 @Controller('teams')
 @ApiTags('teams')
@@ -41,7 +42,7 @@ export class TeamsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new team' })
   @ApiResponse({ status: 201, description: 'Team successfully created' })
-  async createTeam(@Body() createTeamDto) {
+  async createTeam(@Body() createTeamDto: CreateTeamDto) {
     return this.teamService.createTeam(createTeamDto);
   }
 

@@ -13,13 +13,13 @@ export const GetUser = createParamDecorator(
     // Fallback to manual token extraction
     const authHeader = request.headers.authorization;
     if (!authHeader) {
-      console.log('No authorization header');
+      //console.log('No authorization header');
       return null;
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
-      console.log('No token found');
+      //console.log('No token found');
       return null;
     }
 
@@ -29,10 +29,10 @@ export const GetUser = createParamDecorator(
       });
 
       const decodedToken = await jwtService.verifyAsync(token);
-      console.log('Decoded token:', decodedToken);
+      //console.log('Decoded token:', decodedToken);
       return decodedToken.sub; // Make sure your token payload uses 'sub' for the user ID
     } catch (error) {
-      console.log('Token verification failed:', error);
+      //console.log('Token verification failed:', error);
       return null;
     }
   },
