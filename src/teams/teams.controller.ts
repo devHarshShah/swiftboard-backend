@@ -7,6 +7,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -24,9 +25,20 @@ export class TeamsController {
 
   @Get()
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all teams' })
-  @ApiResponse({ status: 200, description: 'Returns all teams' })
-  async getAllTeams() {
+  @ApiOperation({
+    summary: 'Get all teams or teams where the user is an admin/editor',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns all teams or filtered teams if userId is provided',
+  })
+  async getAllTeams(
+    @Query('filterByRole') filterByRole?: boolean,
+    @GetUser() userId?: string,
+  ) {
+    if (filterByRole && userId) {
+      return this.teamService.getTeamsByUserRole(userId, ['Admin', 'Editor']);
+    }
     return this.teamService.getAllTeams();
   }
 
@@ -42,8 +54,11 @@ export class TeamsController {
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new team' })
   @ApiResponse({ status: 201, description: 'Team successfully created' })
-  async createTeam(@Body() createTeamDto: CreateTeamDto) {
-    return this.teamService.createTeam(createTeamDto);
+  async createTeam(
+    @GetUser() userId: string,
+    @Body() createTeamDto: CreateTeamDto,
+  ) {
+    return this.teamService.createTeam(userId, createTeamDto);
   }
 
   @Put(':id')

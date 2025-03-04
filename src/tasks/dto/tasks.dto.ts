@@ -1,14 +1,39 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsArray, IsEnum } from 'class-validator';
+import { TaskStatus } from '@prisma/client'; // Import the TaskStatus enum from the generated Prisma client
 
 export class CreateTaskDto {
   @IsString()
   name: string;
+
+  @IsString()
+  description: string;
+
+  @IsEnum(TaskStatus)
+  status: TaskStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assignedUserIds?: string[];
 }
 
 export class UpdateTaskDto {
   @IsOptional()
   @IsString()
-  name: string;
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(TaskStatus)
+  status?: TaskStatus;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assignedUserIds?: string[];
 }
 
 export class AssignTaskDto {
@@ -18,4 +43,8 @@ export class AssignTaskDto {
   @IsOptional()
   @IsString()
   teamId?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  userIds: string[];
 }

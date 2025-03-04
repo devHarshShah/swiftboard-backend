@@ -15,7 +15,8 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { AuthGuard } from '@nestjs/passport';
 import { CreateTaskDto, UpdateTaskDto, AssignTaskDto } from './dto/tasks.dto';
-import { User } from 'src/common/decorators/user.decorator';
+import { GetUser } from 'src/users/decorators/user.decorator';
+import { TaskStatus } from '@prisma/client';
 
 @Controller('projects/:projectId/tasks')
 @ApiTags('tasks')
@@ -83,7 +84,11 @@ export class TasksController {
     @Param('taskId') taskId: string,
     @Body() assignTaskDto: AssignTaskDto,
   ) {
-    return this.tasksService.assignTaskToUser(projectId, taskId, assignTaskDto);
+    return this.tasksService.assignTaskToUsers(
+      projectId,
+      taskId,
+      assignTaskDto,
+    );
   }
 
   @Delete(':taskId/assign')
@@ -96,14 +101,15 @@ export class TasksController {
     return this.tasksService.unassignTaskFromUser(projectId, taskId);
   }
 
-  @Patch(':taskId/complete')
+  @Patch(':taskId/move')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark a task as complete' })
   async completeTask(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
-    @User('id') userId: string, // Use the custom decorator to extract user ID
+    @GetUser() userId: string, // Use the custom decorator to extract user ID
+    @Body('status') status: TaskStatus,
   ) {
-    return this.tasksService.completeTask(projectId, taskId, userId);
+    return this.tasksService.moveTask(projectId, taskId, userId, status);
   }
 }

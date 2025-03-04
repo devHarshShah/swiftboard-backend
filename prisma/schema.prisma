@@ -61,21 +61,22 @@ model Project {
   team      Team     @relation(fields: [teamId], references: [id])
   tasks     Task[]
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 model Task {
   id              String           @id @default(cuid())
   name            String
+  description     String?
   projectId       String
   project         Project          @relation(fields: [projectId], references: [id])
   taskAssignments TaskAssignment[]
   subTasks        SubTask[]
   timeTracking    TimeTracking[]
   files           File[]
-  completed       Boolean          @default(false)
+  status          TaskStatus       @default(TODO)
   createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  updatedAt       DateTime         @default(now())
 }
 
 model TaskAssignment {
@@ -87,17 +88,18 @@ model TaskAssignment {
   user      User     @relation(fields: [userId], references: [id])
   team      Team?    @relation(fields: [teamId], references: [id])
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 model SubTask {
-  id        String   @id @default(cuid())
-  name      String
-  taskId    String
-  task      Task     @relation(fields: [taskId], references: [id])
-  completed Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  taskId      String
+  task        Task     @relation(fields: [taskId], references: [id])
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
 }
 
 model Notification {
@@ -107,7 +109,7 @@ model Notification {
   message   String
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 model ActivityLog {
@@ -116,7 +118,7 @@ model ActivityLog {
   user      User     @relation(fields: [userId], references: [id])
   message   String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 model Sprint {
@@ -127,7 +129,7 @@ model Sprint {
   teamId    String
   team      Team     @relation(fields: [teamId], references: [id])
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 model TimeTracking {
@@ -139,14 +141,7 @@ model TimeTracking {
   startTime DateTime
   endTime   DateTime
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model TaskStatus {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 model File {
@@ -156,7 +151,7 @@ model File {
   taskId    String
   task      Task     @relation(fields: [taskId], references: [id])
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 model ApiKey {
@@ -165,7 +160,7 @@ model ApiKey {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 model WebHook {
@@ -174,11 +169,17 @@ model WebHook {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now())
 }
 
 enum TeamRole {
   Viewer
   Editor
   Admin
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
 }

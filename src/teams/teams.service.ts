@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateTeamDto } from './dto/team.dto';
+import { TeamRole } from '@prisma/client';
 import { CustomMailerService } from 'src/custommailer/custommailer.service';
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
@@ -21,6 +22,21 @@ export class TeamsService {
     return await this.prisma.team.findMany();
   }
 
+  async getTeamsByUserRole(userId: string, roles: TeamRole[]) {
+    return this.prisma.team.findMany({
+      where: {
+        memberships: {
+          some: {
+            userId: userId,
+            role: {
+              in: roles,
+            },
+          },
+        },
+      },
+    });
+  }
+
   async getTeamById(teamId: string) {
     const team = await this.prisma.team.findUnique({
       where: { id: teamId },
@@ -29,13 +45,22 @@ export class TeamsService {
     return team;
   }
 
-  async createTeam(createTeamDto: CreateTeamDto) {
+  async createTeam(userId: string, createTeamDto: CreateTeamDto) {
     const { name, emails } = createTeamDto;
 
     // Create the team
     const team = await this.prisma.team.create({
       data: {
         name,
+      },
+    });
+
+    await this.prisma.teamMembership.create({
+      data: {
+        teamId: team.id,
+        userId: userId,
+        role: 'Admin',
+        status: 'active',
       },
     });
 
