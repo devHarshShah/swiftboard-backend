@@ -43,10 +43,78 @@ export class TasksService {
     taskId: string,
     updateTaskDto: UpdateTaskDto,
   ) {
-    return await this.prismaService.task.update({
+    const { assignedUserIds, blockedTaskIds, ...taskData } = updateTaskDto;
+
+    // Validate blocked by tasks exist and are in the same project
+    if (blockedTaskIds && blockedTaskIds.length > 0) {
+      const existingBlockerTasks = await this.prismaService.task.findMany({
+        where: {
+          id: { in: blockedTaskIds },
+          projectId: projectId, // Ensure blockers are in the same project
+        },
+      });
+
+      if (existingBlockerTasks.length !== blockedTaskIds.length) {
+        throw new BadRequestException(
+          'Some blocked by task IDs are invalid or not in the same project',
+        );
+      }
+    }
+
+    // Update the task with dependencies
+    const updatedTask = await this.prismaService.task.update({
       where: { id: taskId },
-      data: updateTaskDto,
+      data: {
+        ...taskData,
+        blockedBy: blockedTaskIds
+          ? {
+              set: blockedTaskIds.map((id) => ({ id })),
+            }
+          : undefined,
+      },
     });
+
+    // Handle task assignments
+    if (assignedUserIds && assignedUserIds.length > 0) {
+      // Validate user IDs exist and are part of the team memberships that have access to the project
+      const validUsers = await this.prismaService.user.findMany({
+        where: {
+          id: { in: assignedUserIds },
+          memberships: {
+            some: {
+              team: {
+                projects: {
+                  some: { id: projectId },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (validUsers.length !== assignedUserIds.length) {
+        throw new BadRequestException(
+          'Some user IDs are invalid or not part of the project',
+        );
+      }
+
+      // First, remove existing task assignments
+      await this.prismaService.taskAssignment.deleteMany({
+        where: { taskId: taskId },
+      });
+
+      // Create new task assignments
+      const taskAssignments = assignedUserIds.map((userId) => ({
+        taskId: taskId,
+        userId: userId,
+      }));
+
+      await this.prismaService.taskAssignment.createMany({
+        data: taskAssignments,
+      });
+    }
+
+    return updatedTask;
   }
 
   async deleteTaskForProject(projectId: string, taskId: string) {
