@@ -15,6 +15,12 @@ export class CreateTaskDto {
   @IsArray()
   @IsString({ each: true })
   assignedUserIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @IsArray()
+  @IsString({ each: true })
+  blockedTaskIds: string[];
 }
 
 export class UpdateTaskDto {
@@ -34,6 +40,11 @@ export class UpdateTaskDto {
   @IsArray()
   @IsString({ each: true })
   assignedUserIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  blockedTaskIds?: string[];
 }
 
 export class AssignTaskDto {

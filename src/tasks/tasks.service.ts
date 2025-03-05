@@ -17,6 +17,10 @@ export class TasksService {
             user: true, // Include user details for each assignment
           },
         },
+        blockedBy: true, // Include tasks blocking this task
+        blocking: true, // Include tasks this task is blocking
+        dependencies: true, // Include tasks this task depends on
+        dependentTasks: true, // Include tasks dependent on this task
       },
     });
   }
@@ -46,27 +50,52 @@ export class TasksService {
   }
 
   async deleteTaskForProject(projectId: string, taskId: string) {
+    // Delete task assignments associated with the task
+    await this.prismaService.taskAssignment.deleteMany({
+      where: { taskId },
+    });
+
+    // Delete the task
     return await this.prismaService.task.delete({
       where: { id: taskId },
     });
   }
 
   async createTaskForProject(projectId: string, createTaskDto: CreateTaskDto) {
-    const { assignedUserIds, ...taskData } = createTaskDto;
+    const { assignedUserIds, blockedTaskIds, ...taskData } = createTaskDto;
 
-    console.log(assignedUserIds);
+    console.log('blockedTaskIds', blockedTaskIds);
 
-    // Create the task without userIds
+    // Validate blocked by tasks exist and are in the same project
+    if (blockedTaskIds && blockedTaskIds.length > 0) {
+      const existingBlockerTasks = await this.prismaService.task.findMany({
+        where: {
+          id: { in: blockedTaskIds },
+          projectId: projectId, // Ensure blockers are in the same project
+        },
+      });
+
+      if (existingBlockerTasks.length !== blockedTaskIds.length) {
+        throw new BadRequestException(
+          'Some blocked by task IDs are invalid or not in the same project',
+        );
+      }
+    }
+
+    // Create the task with dependencies
     const task = await this.prismaService.task.create({
       data: {
         ...taskData,
         projectId,
+        blockedBy: blockedTaskIds
+          ? {
+              connect: blockedTaskIds.map((id) => ({ id })),
+            }
+          : undefined,
       },
     });
 
-    console.log('Task created:', task);
-
-    // Rest of your existing code for task assignments remains the same
+    // Rest of your existing code for task assignments
     if (assignedUserIds && assignedUserIds.length > 0) {
       // Validate user IDs exist and are part of the team memberships that have access to the project
       const validUsers = await this.prismaService.user.findMany({
@@ -84,8 +113,6 @@ export class TasksService {
         },
       });
 
-      console.log('Valid users:', validUsers);
-
       if (validUsers.length !== assignedUserIds.length) {
         throw new BadRequestException(
           'Some user IDs are invalid or not part of the project',
@@ -98,13 +125,9 @@ export class TasksService {
         userId: userId,
       }));
 
-      console.log('Task assignments to create:', taskAssignments);
-
       await this.prismaService.taskAssignment.createMany({
         data: taskAssignments,
       });
-
-      console.log('Task assignments created');
     }
 
     return task;

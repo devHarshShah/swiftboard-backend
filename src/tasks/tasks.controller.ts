@@ -107,7 +107,7 @@ export class TasksController {
   async completeTask(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
-    @GetUser() userId: string, // Use the custom decorator to extract user ID
+    @GetUser() userId: string,
     @Body('status') status: TaskStatus,
   ) {
     return this.tasksService.moveTask(projectId, taskId, userId, status);

@@ -23,7 +23,7 @@ model User {
   apiKeys         ApiKey[]
   webHooks        WebHook[]
   createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  updatedAt       DateTime         @default(now())
 }
 
 model Team {
@@ -34,7 +34,7 @@ model Team {
   taskAssignments TaskAssignment[]
   sprints         Sprint[]
   createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  updatedAt       DateTime         @default(now())
 }
 
 model TeamMembership {
@@ -77,6 +77,14 @@ model Task {
   status          TaskStatus       @default(TODO)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @default(now())
+
+  // Dependencies
+  dependencies   Task[] @relation("TaskDependencies")
+  dependentTasks Task[] @relation("TaskDependencies")
+
+  // Blockers
+  blockedBy Task[] @relation("TaskBlockedBy")
+  blocking  Task[] @relation("TaskBlockedBy")
 }
 
 model TaskAssignment {
