@@ -75,8 +75,16 @@ model Task {
   timeTracking    TimeTracking[]
   files           File[]
   status          TaskStatus       @default(TODO)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @default(now())
+
+  // Time tracking fields
+  dueDate        DateTime? // When the task is due
+  startedAt      DateTime? // When the task was moved to IN_PROGRESS
+  completedAt    DateTime? // When the task was moved to DONE
+  estimatedHours Float? // Estimated time to complete in hours
+  actualHours    Float? // Actual time spent on task (calculated)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
 
   // Dependencies
   dependencies   Task[] @relation("TaskDependencies")
@@ -85,6 +93,21 @@ model Task {
   // Blockers
   blockedBy Task[] @relation("TaskBlockedBy")
   blocking  Task[] @relation("TaskBlockedBy")
+}
+
+// Enhance TimeTracking model to better support sessions
+model TimeTracking {
+  id          String    @id @default(cuid())
+  taskId      String
+  userId      String
+  task        Task      @relation(fields: [taskId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+  description String? // What was done during this time session
+  startTime   DateTime
+  endTime     DateTime? // Nullable to support ongoing tracking
+  duration    Float? // Duration in hours (calculated)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now())
 }
 
 model TaskAssignment {
@@ -136,18 +159,6 @@ model Sprint {
   user      User     @relation(fields: [userId], references: [id])
   teamId    String
   team      Team     @relation(fields: [teamId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
-}
-
-model TimeTracking {
-  id        String   @id @default(cuid())
-  taskId    String
-  userId    String
-  task      Task     @relation(fields: [taskId], references: [id])
-  user      User     @relation(fields: [userId], references: [id])
-  startTime DateTime
-  endTime   DateTime
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
 }

@@ -14,7 +14,13 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { AuthGuard } from '@nestjs/passport';
-import { CreateTaskDto, UpdateTaskDto, AssignTaskDto } from './dto/tasks.dto';
+import {
+  CreateTaskDto,
+  UpdateTaskDto,
+  AssignTaskDto,
+  TimeTrackingDto,
+  MoveTaskDto,
+} from './dto/tasks.dto';
 import { GetUser } from 'src/users/decorators/user.decorator';
 import { TaskStatus } from '@prisma/client';
 
@@ -103,13 +109,74 @@ export class TasksController {
 
   @Patch(':taskId/move')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Mark a task as complete' })
-  async completeTask(
+  @ApiOperation({
+    summary: 'Move a task to a different status with automatic time tracking',
+  })
+  async moveTask(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
     @GetUser() userId: string,
-    @Body('status') status: TaskStatus,
+    @Body() moveTaskDto: MoveTaskDto,
   ) {
-    return this.tasksService.moveTask(projectId, taskId, userId, status);
+    return this.tasksService.moveTask(
+      projectId,
+      taskId,
+      userId,
+      moveTaskDto.status,
+    );
+  }
+
+  // New endpoints for manual time tracking
+  @Post(':taskId/time-tracking')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Start time tracking for a task' })
+  async startTimeTracking(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @GetUser() userId: string,
+    @Body() timeTrackingDto: TimeTrackingDto,
+  ) {
+    return this.tasksService.startTimeTracking(
+      projectId,
+      taskId,
+      userId,
+      timeTrackingDto,
+    );
+  }
+
+  @Patch(':taskId/time-tracking/:sessionId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Stop time tracking for a task' })
+  async stopTimeTracking(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Param('sessionId') sessionId: string,
+    @GetUser() userId: string,
+    @Body() timeTrackingDto: TimeTrackingDto,
+  ) {
+    return this.tasksService.stopTimeTracking(
+      projectId,
+      taskId,
+      userId,
+      sessionId,
+      timeTrackingDto,
+    );
+  }
+
+  @Get(':taskId/time-stats')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get time statistics for a task' })
+  async getTaskTimeStats(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+  ) {
+    return this.tasksService.getTaskTimeStats(projectId, taskId);
+  }
+
+  @Get('time-stats')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get time statistics for the entire project' })
+  async getProjectTimeStats(@Param('projectId') projectId: string) {
+    return this.tasksService.getProjectTimeStats(projectId);
   }
 }

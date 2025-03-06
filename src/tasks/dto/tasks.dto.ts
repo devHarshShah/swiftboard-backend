@@ -1,61 +1,104 @@
-import { IsOptional, IsString, IsArray, IsEnum } from 'class-validator';
-import { TaskStatus } from '@prisma/client'; // Import the TaskStatus enum from the generated Prisma client
+// tasks.dto.ts
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsDate,
+  IsNumber,
+  IsEnum,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiProperty } from '@nestjs/swagger';
+import { TaskStatus } from '@prisma/client';
 
 export class CreateTaskDto {
   @IsString()
-  name: string;
-
-  @IsString()
-  description: string;
-
-  @IsEnum(TaskStatus)
-  status: TaskStatus;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  assignedUserIds?: string[];
-
-  @IsOptional()
-  @IsString()
-  @IsArray()
-  @IsString({ each: true })
-  blockedTaskIds: string[];
-}
-
-export class UpdateTaskDto {
-  @IsOptional()
-  @IsString()
+  @ApiProperty({ description: 'Task name' })
   name?: string;
 
-  @IsOptional()
   @IsString()
+  @IsOptional()
+  @ApiProperty({ description: 'Task description', required: false })
   description?: string;
 
-  @IsOptional()
-  @IsEnum(TaskStatus)
-  status?: TaskStatus;
-
-  @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsOptional()
+  @ApiProperty({
+    description: 'User IDs to assign to this task',
+    required: false,
+    type: [String],
+  })
   assignedUserIds?: string[];
 
-  @IsOptional()
   @IsArray()
-  @IsString({ each: true })
+  @IsOptional()
+  @ApiProperty({
+    description: 'Task IDs that block this task',
+    required: false,
+    type: [String],
+  })
   blockedTaskIds?: string[];
+
+  @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  @ApiProperty({ description: 'Due date for the task', required: false })
+  dueDate?: Date;
+
+  @IsNumber()
+  @IsOptional()
+  @ApiProperty({ description: 'Estimated hours to complete', required: false })
+  estimatedHours?: number;
+}
+
+export class UpdateTaskDto extends CreateTaskDto {
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ description: 'Task name', required: false })
+  name?: string;
+
+  @IsEnum(TaskStatus)
+  @IsOptional()
+  @ApiProperty({
+    enum: TaskStatus,
+    description: 'Task status',
+    required: false,
+  })
+  status?: TaskStatus;
 }
 
 export class AssignTaskDto {
-  @IsString()
-  userId: string;
-
-  @IsOptional()
-  @IsString()
-  teamId?: string;
-
   @IsArray()
-  @IsString({ each: true })
+  @ApiProperty({
+    description: 'User IDs to assign to this task',
+    type: [String],
+  })
   userIds: string[];
+}
+
+export class MoveTaskDto {
+  @IsEnum(TaskStatus)
+  @ApiProperty({
+    enum: TaskStatus,
+    description: 'New task status',
+  })
+  status: TaskStatus;
+}
+
+export class TimeTrackingDto {
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ description: 'Description of work done', required: false })
+  description?: string;
+
+  @IsDate()
+  @Type(() => Date)
+  @ApiProperty({ description: 'Start time of tracking session' })
+  startTime: Date;
+
+  @IsDate()
+  @IsOptional()
+  @Type(() => Date)
+  @ApiProperty({ description: 'End time of tracking session', required: false })
+  endTime?: Date;
 }
