@@ -11,6 +11,7 @@ import { SubtasksModule } from './subtasks/subtasks.module';
 import { UsersModule } from './users/users.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { CustomMailerModule } from './custommailer/custommailer.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CustomMailerModule } from './custommailer/custommailer.module';
     SubtasksModule,
     UsersModule,
     CustomMailerModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],

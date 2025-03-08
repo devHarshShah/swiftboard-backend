@@ -22,11 +22,11 @@ export class TasksService {
             user: true, // Include user details for each assignment
           },
         },
-        blockedBy: true, // Include tasks blocking this task
-        blocking: true, // Include tasks this task is blocking
-        dependencies: true, // Include tasks this task depends on
-        dependentTasks: true, // Include tasks dependent on this task
-        timeTracking: true, // Include time tracking data
+        blockedBy: true,
+        blocking: true,
+        dependencies: true,
+        dependentTasks: true,
+        timeTracking: true,
       },
     });
   }
@@ -52,12 +52,11 @@ export class TasksService {
   ) {
     const { assignedUserIds, blockedTaskIds, ...taskData } = updateTaskDto;
 
-    // Validate blocked by tasks exist and are in the same project
     if (blockedTaskIds && blockedTaskIds.length > 0) {
       const existingBlockerTasks = await this.prismaService.task.findMany({
         where: {
           id: { in: blockedTaskIds },
-          projectId: projectId, // Ensure blockers are in the same project
+          projectId: projectId,
         },
       });
 
@@ -68,7 +67,6 @@ export class TasksService {
       }
     }
 
-    // Update the task with dependencies
     const updatedTask = await this.prismaService.task.update({
       where: { id: taskId },
       data: {
@@ -81,9 +79,7 @@ export class TasksService {
       },
     });
 
-    // Handle task assignments
     if (assignedUserIds && assignedUserIds.length > 0) {
-      // Validate user IDs exist and are part of the team memberships that have access to the project
       const validUsers = await this.prismaService.user.findMany({
         where: {
           id: { in: assignedUserIds },
@@ -105,7 +101,6 @@ export class TasksService {
         );
       }
 
-      // First, remove existing task assignments
       await this.prismaService.taskAssignment.deleteMany({
         where: { taskId: taskId },
       });
@@ -125,17 +120,14 @@ export class TasksService {
   }
 
   async deleteTaskForProject(projectId: string, taskId: string) {
-    // Delete time tracking associated with the task
     await this.prismaService.timeTracking.deleteMany({
       where: { taskId },
     });
 
-    // Delete task assignments associated with the task
     await this.prismaService.taskAssignment.deleteMany({
       where: { taskId },
     });
 
-    // Delete the task
     return await this.prismaService.task.delete({
       where: { id: taskId },
     });
@@ -151,12 +143,11 @@ export class TasksService {
 
     console.log('blockedTaskIds', blockedTaskIds);
 
-    // Validate blocked by tasks exist and are in the same project
     if (blockedTaskIds && blockedTaskIds.length > 0) {
       const existingBlockerTasks = await this.prismaService.task.findMany({
         where: {
           id: { in: blockedTaskIds },
-          projectId: projectId, // Ensure blockers are in the same project
+          projectId: projectId,
         },
       });
 
@@ -167,7 +158,6 @@ export class TasksService {
       }
     }
 
-    // Create the task with dependencies
     const task = await this.prismaService.task.create({
       data: {
         ...taskData,
@@ -181,9 +171,7 @@ export class TasksService {
       },
     });
 
-    // Rest of your existing code for task assignments
     if (assignedUserIds && assignedUserIds.length > 0) {
-      // Validate user IDs exist and are part of the team memberships that have access to the project
       const validUsers = await this.prismaService.user.findMany({
         where: {
           id: { in: assignedUserIds },
@@ -205,7 +193,6 @@ export class TasksService {
         );
       }
 
-      // Create task assignments
       const taskAssignments = assignedUserIds.map((userId) => ({
         taskId: task.id,
         userId: userId,
@@ -224,7 +211,6 @@ export class TasksService {
     taskId: string,
     assignTaskDto: { userIds: string[] },
   ) {
-    // Verify the task exists and belongs to the project
     const task = await this.prismaService.task.findUnique({
       where: { id: taskId, projectId },
     });
@@ -233,7 +219,6 @@ export class TasksService {
       throw new NotFoundException('Task not found in the specified project');
     }
 
-    // Validate user IDs exist and are part of the project
     const validUsers = await this.prismaService.user.findMany({
       where: {
         id: { in: assignTaskDto.userIds },
@@ -255,12 +240,10 @@ export class TasksService {
       );
     }
 
-    // Remove existing assignments to avoid duplicates
     await this.prismaService.taskAssignment.deleteMany({
       where: { taskId },
     });
 
-    // Create new task assignments
     await this.prismaService.taskAssignment.createMany({
       data: assignTaskDto.userIds.map((userId) => ({
         taskId,
@@ -292,7 +275,6 @@ export class TasksService {
     userId: string,
     status: TaskStatus,
   ) {
-    // Verify the task exists and belongs to the project
     const task = await this.prismaService.task.findFirst({
       where: { id: taskId, projectId },
     });
@@ -301,7 +283,6 @@ export class TasksService {
       throw new NotFoundException('Task not found in the specified project');
     }
 
-    // Verify the user is assigned to the task
     const taskAssignment = await this.prismaService.taskAssignment.findFirst({
       where: { taskId, userId },
     });
@@ -310,18 +291,13 @@ export class TasksService {
       throw new BadRequestException('User is not assigned to the task');
     }
 
-    // Prepare update data based on status change
     const updateData: any = { status };
 
-    // Track time based on status changes
     if (status === TaskStatus.IN_PROGRESS && !task.startedAt) {
-      // When task moves to IN_PROGRESS for the first time, record start time
       updateData.startedAt = new Date();
     } else if (status === TaskStatus.DONE && !task.completedAt) {
-      // When task moves to DONE, record completion time
       updateData.completedAt = new Date();
 
-      // Calculate actual hours if we have startedAt time
       if (task.startedAt) {
         const startTime = new Date(task.startedAt);
         const endTime = new Date();
@@ -331,21 +307,18 @@ export class TasksService {
       }
     }
 
-    // Update task with new status and time tracking information
     return await this.prismaService.task.update({
       where: { id: taskId },
       data: updateData,
     });
   }
 
-  // New methods for time tracking
   async startTimeTracking(
     projectId: string,
     taskId: string,
     userId: string,
     timeTrackingDto: TimeTrackingDto,
   ) {
-    // Verify the task exists and belongs to the project
     const task = await this.prismaService.task.findFirst({
       where: { id: taskId, projectId },
     });
@@ -354,7 +327,6 @@ export class TasksService {
       throw new NotFoundException('Task not found in the specified project');
     }
 
-    // Verify the user is assigned to the task
     const taskAssignment = await this.prismaService.taskAssignment.findFirst({
       where: { taskId, userId },
     });
@@ -363,7 +335,6 @@ export class TasksService {
       throw new BadRequestException('User is not assigned to the task');
     }
 
-    // Check if there's an ongoing time tracking session for this user and task
     const ongoingSession = await this.prismaService.timeTracking.findFirst({
       where: {
         taskId,
@@ -378,7 +349,6 @@ export class TasksService {
       );
     }
 
-    // Create a new time tracking session
     return await this.prismaService.timeTracking.create({
       data: {
         taskId,
@@ -396,7 +366,6 @@ export class TasksService {
     sessionId: string,
     timeTrackingDto: TimeTrackingDto,
   ) {
-    // Find the ongoing session
     const session = await this.prismaService.timeTracking.findUnique({
       where: {
         id: sessionId,
@@ -418,7 +387,6 @@ export class TasksService {
     const durationHours =
       (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
 
-    // Update the session with end time and duration
     return await this.prismaService.timeTracking.update({
       where: { id: sessionId },
       data: {
@@ -430,7 +398,6 @@ export class TasksService {
   }
 
   async getTaskTimeStats(projectId: string, taskId: string) {
-    // Verify the task exists and belongs to the project
     const task = await this.prismaService.task.findFirst({
       where: { id: taskId, projectId },
       include: {
@@ -442,7 +409,6 @@ export class TasksService {
       throw new NotFoundException('Task not found in the specified project');
     }
 
-    // Calculate total tracked time
     let totalTrackedHours = 0;
     let ongoingSessions = 0;
 
@@ -454,7 +420,6 @@ export class TasksService {
       }
     });
 
-    // Prepare stats
     return {
       taskId: task.id,
       name: task.name,
@@ -475,7 +440,6 @@ export class TasksService {
   }
 
   async getProjectTimeStats(projectId: string) {
-    // Get all tasks for the project with time tracking data
     const tasks = await this.prismaService.task.findMany({
       where: { projectId },
       include: {
@@ -483,7 +447,6 @@ export class TasksService {
       },
     });
 
-    // Calculate project-wide stats
     let totalEstimatedHours = 0;
     let totalActualHours = 0;
     let totalTrackedHours = 0;
@@ -507,7 +470,6 @@ export class TasksService {
       }
     });
 
-    // Prepare project stats
     return {
       projectId,
       totalTasks: tasks.length,
