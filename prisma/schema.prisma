@@ -8,22 +8,24 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  email           String           @unique
-  name            String
-  password        String?
-  provider        String?
-  refreshToken    String?
-  memberships     TeamMembership[] // Relation to teams with specific roles
-  taskAssignments TaskAssignment[]
-  notifications   Notification[]
-  activityLogs    ActivityLog[]
-  sprints         Sprint[]
-  timeTracking    TimeTracking[]
-  apiKeys         ApiKey[]
-  webHooks        WebHook[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @default(now())
+  id               String           @id @default(cuid())
+  email            String           @unique
+  name             String
+  password         String?
+  provider         String?
+  refreshToken     String?
+  memberships      TeamMembership[] // Relation to teams with specific roles
+  taskAssignments  TaskAssignment[]
+  notifications    Notification[]
+  activityLogs     ActivityLog[]
+  sprints          Sprint[]
+  timeTracking     TimeTracking[]
+  apiKeys          ApiKey[]
+  webHooks         WebHook[]
+  sentMessages     Message[]        @relation("SentMessages")
+  receivedMessages Message[]        @relation("ReceivedMessages")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @default(now())
 }
 
 model Team {
@@ -173,6 +175,19 @@ model File {
   updatedAt DateTime @default(now())
 }
 
+model Message {
+  id         String        @id @default(cuid())
+  text       String // Changed from 'text' to match DTO's 'message' field
+  senderId   String // New field for the sender
+  receiverId String // New field for the receiver
+  sender     User          @relation("SentMessages", fields: [senderId], references: [id])
+  receiver   User          @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  sentAt     DateTime      @default(now()) // For storing the full date and time
+  status     MessageStatus @default(SENT) // Using enum for message status
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @default(now())
+}
+
 model ApiKey {
   id        String   @id @default(cuid())
   key       String
@@ -201,4 +216,10 @@ enum TaskStatus {
   TODO
   IN_PROGRESS
   DONE
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
 }
