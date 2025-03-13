@@ -22,12 +22,12 @@ export class ChatGateway {
 
   // Handle client connections
   handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
+    //console.log(`Client connected: ${client.id}`);
   }
 
   // Handle client disconnections
   handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
+    //console.log(`Client disconnected: ${client.id}`);
   }
 
   // Join room when a user opens a chat with another user
@@ -43,7 +43,7 @@ export class ChatGateway {
     client.data.userId = data.userId;
 
     client.join(roomName);
-    console.log(`User ${data.userId} joined room ${roomName}`);
+    //console.log(`User ${data.userId} joined room ${roomName}`);
 
     // Send confirmation back to client
     client.emit('joinRoomSuccess', {

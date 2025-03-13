@@ -8,10 +8,14 @@ import {
 } from './dto/tasks.dto';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TaskStatus } from '@prisma/client';
+import { NotificationGateway } from 'src/notification/notification-gateway';
 
 @Injectable()
 export class TasksService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    private notificationGateway: NotificationGateway,
+  ) {}
 
   async getAllTasksForProject(projectId: string) {
     return await this.prismaService.task.findMany({
@@ -141,7 +145,7 @@ export class TasksService {
       ...taskData
     } = createTaskDto;
 
-    console.log('blockedTaskIds', blockedTaskIds);
+    //console.log('blockedTaskIds', blockedTaskIds);
 
     if (blockedTaskIds && blockedTaskIds.length > 0) {
       const existingBlockerTasks = await this.prismaService.task.findMany({
@@ -201,6 +205,16 @@ export class TasksService {
       await this.prismaService.taskAssignment.createMany({
         data: taskAssignments,
       });
+    }
+
+    if (assignedUserIds && assignedUserIds.length > 0) {
+      for (const userId of assignedUserIds) {
+        await this.notificationGateway.emitNotification(userId, {
+          message: `You have been assigned to task: ${task.name}`,
+          userId: userId,
+          type: 'TASK_ASSIGNMENT',
+        });
+      }
     }
 
     return task;

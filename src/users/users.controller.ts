@@ -43,7 +43,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Get current user' })
   @ApiResponse({ status: 200, description: 'Returns the current user' })
   async getCurrentUser(@GetUser() userId: string) {
-    //console.log('User ID:', userId); // Log the user ID to verify
+    ////console.log('User ID:', userId); // Log the user ID to verify
     return this.usersService.getUserById(userId);
   }
 

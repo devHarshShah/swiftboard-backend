@@ -126,7 +126,6 @@ export class TasksController {
     );
   }
 
-  // New endpoints for manual time tracking
   @Post(':taskId/time-tracking')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Start time tracking for a task' })
