@@ -198,6 +198,48 @@ model ApiKey {
   updatedAt DateTime @default(now())
 }
 
+model Nodes {
+  id                String    @id @default(cuid())
+  type              String
+  positionX         Float
+  positionY         Float
+  data              Json
+  width             Int
+  height            Int
+  selected          Boolean
+  positionAbsoluteX Float
+  positionAbsoluteY Float
+  dragging          Boolean
+  workFlow          WorkFlow? @relation(fields: [workFlowId], references: [id])
+  workFlowId        String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Edges {
+  id           String    @id @default(cuid())
+  type         String
+  style        Json
+  source       String
+  sourceHandle String?
+  target       String
+  targetHandle String?
+  animated     Boolean   @default(false)
+  workFlow     WorkFlow? @relation(fields: [workFlowId], references: [id])
+  workFlowId   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model WorkFlow {
+  id        String   @id @default(cuid())
+  name      String
+  nodes     Nodes[]
+  edges     Edges[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model WebHook {
   id        String   @id @default(cuid())
   url       String

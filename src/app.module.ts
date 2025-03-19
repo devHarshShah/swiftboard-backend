@@ -13,6 +13,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { CustomMailerModule } from './custommailer/custommailer.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
+import { WorkflowModule } from './workflow/workflow.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { NotificationModule } from './notification/notification.module';
     CustomMailerModule,
     ChatModule,
     NotificationModule,
+    WorkflowModule,
   ],
   controllers: [AppController],
   providers: [AppService],
