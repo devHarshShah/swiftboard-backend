@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   UseGuards,
+  Put,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { WorkflowService } from './workflow.service';
@@ -33,5 +34,15 @@ export class WorkflowController {
   @ApiOperation({ summary: 'Get specific workflow' })
   async getAllWorkflowsForProject(@Param('id') id: string) {
     return this.workflowService.getWorkFlow(id);
+  }
+
+  @Put(':id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update a workflow' })
+  async updateWorkflow(
+    @Param('id') id: string,
+    @Body() createWorkflowDto: CreateWorkflowDto,
+  ) {
+    return this.workflowService.updateWorkflow(id, createWorkflowDto);
   }
 }
