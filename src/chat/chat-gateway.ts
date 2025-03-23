@@ -10,6 +10,7 @@ import { ChatService } from './chat.service';
 import { AddMessageDto } from './dto/chat.dto';
 
 @WebSocketGateway({
+  namespace: 'chat',
   cors: {
     origin: '*', // Adjust this for production
   },

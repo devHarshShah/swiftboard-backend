@@ -12,6 +12,7 @@ import { NotificationService } from './notification.service';
 import { CreateNotificationDto } from './dto/notification.dto';
 
 @WebSocketGateway({
+  namespace: 'notification',
   cors: {
     origin: '*',
   },
