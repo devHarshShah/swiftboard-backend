@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { WorkflowService } from './workflow.service';
-import { ApiOperation } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CreateWorkflowDto } from './dto/workflow.dto';
 
 @Controller('workflow')
@@ -44,5 +44,18 @@ export class WorkflowController {
     @Body() createWorkflowDto: CreateWorkflowDto,
   ) {
     return this.workflowService.updateWorkflow(id, createWorkflowDto);
+  }
+
+  @Post(':projectId/publish')
+  @ApiOperation({ summary: 'Publish workflow and create associated tasks' })
+  @ApiResponse({
+    status: 201,
+    description: 'Workflow published and tasks created successfully',
+  })
+  async publishWorkflow(
+    @Param('projectId') projectId: string,
+    @Body() createWorkflowDto: CreateWorkflowDto,
+  ) {
+    return this.workflowService.publishWorkflow(projectId, createWorkflowDto);
   }
 }
