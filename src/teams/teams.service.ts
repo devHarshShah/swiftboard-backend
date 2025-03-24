@@ -9,6 +9,7 @@ import { TeamRole } from '@prisma/client';
 import { CustomMailerService } from 'src/custommailer/custommailer.service';
 import { randomBytes } from 'crypto';
 import { ConfigService } from '@nestjs/config';
+import { NotificationGateway } from 'src/notification/notification-gateway';
 
 @Injectable()
 export class TeamsService {
@@ -16,6 +17,7 @@ export class TeamsService {
     private prisma: PrismaService,
     private readonly mailService: CustomMailerService,
     private configService: ConfigService,
+    private notificationGateway: NotificationGateway,
   ) {}
 
   async getAllTeams() {
@@ -68,6 +70,12 @@ export class TeamsService {
     if (emails && emails.length > 0) {
       await this.sendTeamInvitations(team.id, emails);
     }
+
+    await this.notificationGateway.emitNotification(userId, {
+      message: `You have created a new team: ${team.name}`,
+      userId: userId,
+      type: 'TEAM_CREATION',
+    });
 
     return team;
   }
@@ -193,6 +201,22 @@ export class TeamsService {
       }
     }
 
+    for (const result of results) {
+      if (result.status === 'sent') {
+        const existingUser = await this.prisma.user.findUnique({
+          where: { email: result.email },
+        });
+
+        if (existingUser) {
+          await this.notificationGateway.emitNotification(existingUser.id, {
+            message: `You have been invited to join team: ${team.name}`,
+            userId: existingUser.id,
+            type: 'TEAM_INVITATION',
+          });
+        }
+      }
+    }
+
     return { results };
   }
 
@@ -265,6 +289,25 @@ export class TeamsService {
       );
     }
 
+    await this.notificationGateway.emitNotification(userId, {
+      message: `You have joined the team: ${membership.team.name}`,
+      userId: userId,
+      type: 'TEAM_JOIN',
+    });
+
+    // Notify team admin
+    const teamAdmin = await this.prisma.teamMembership.findFirst({
+      where: { teamId: membership.team.id, role: 'Admin' },
+    });
+
+    if (teamAdmin) {
+      await this.notificationGateway.emitNotification(teamAdmin.userId, {
+        message: `${user.email} has joined your team: ${membership.team.name}`,
+        userId: teamAdmin.userId,
+        type: 'TEAM_MEMBER_JOIN',
+      });
+    }
+
     return {
       message: 'You have joined the team',
       team: membership.team,
@@ -274,6 +317,7 @@ export class TeamsService {
   async declineInvitation(token: string) {
     const membership = await this.prisma.teamMembership.findUnique({
       where: { token },
+      include: { team: true },
     });
 
     if (!membership) {
@@ -295,6 +339,18 @@ export class TeamsService {
         expiresAt: null, // Clear expiration
       },
     });
+
+    const teamAdmin = await this.prisma.teamMembership.findFirst({
+      where: { teamId: membership.teamId, role: 'Admin' },
+    });
+
+    if (teamAdmin) {
+      await this.notificationGateway.emitNotification(teamAdmin.userId, {
+        message: `An invitation to join ${membership.team.name} has been declined`,
+        userId: teamAdmin.userId,
+        type: 'TEAM_INVITATION_DECLINED',
+      });
+    }
 
     return { message: 'Invitation declined' };
   }
@@ -436,9 +492,36 @@ export class TeamsService {
   }
 
   async removeMemberFromTeam(teamId: string, membershipId: string) {
+    const membership = await this.prisma.teamMembership.findUnique({
+      where: { id: membershipId },
+      include: { user: true, team: true },
+    });
+
     await this.prisma.teamMembership.delete({
       where: { id: membershipId },
     });
+
+    if (membership) {
+      // Notify removed member
+      await this.notificationGateway.emitNotification(membership.userId, {
+        message: `You have been removed from team: ${membership.team.name}`,
+        userId: membership.userId,
+        type: 'TEAM_REMOVAL',
+      });
+
+      // Notify team admin
+      const teamAdmin = await this.prisma.teamMembership.findFirst({
+        where: { teamId, role: 'Admin' },
+      });
+
+      if (teamAdmin) {
+        await this.notificationGateway.emitNotification(teamAdmin.userId, {
+          message: `${membership.user.email} has been removed from team: ${membership.team.name}`,
+          userId: teamAdmin.userId,
+          type: 'TEAM_MEMBER_REMOVAL',
+        });
+      }
+    }
 
     return { message: 'Member removed from team' };
   }

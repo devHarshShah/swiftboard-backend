@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ProjectsController } from './projects.controller';
 import { ProjectsService } from './projects.service';
+import { ProjectsController } from './projects.controller';
+import { NotificationModule } from 'src/notification/notification.module';
 
 @Module({
-  controllers: [ProjectsController],
+  imports: [NotificationModule],
   providers: [ProjectsService],
+  controllers: [ProjectsController],
+  exports: [ProjectsService],
 })
 export class ProjectsModule {}

@@ -120,10 +120,29 @@ export class TasksService {
       });
     }
 
+    if (assignedUserIds && assignedUserIds.length > 0) {
+      for (const userId of assignedUserIds) {
+        await this.notificationGateway.emitNotification(userId, {
+          message: `Task updated: ${updatedTask.name}`,
+          userId: userId,
+          type: 'TASK_UPDATE',
+        });
+      }
+    }
+
     return updatedTask;
   }
 
   async deleteTaskForProject(projectId: string, taskId: string) {
+    // Get the task before deleting to access its name
+    const task = await this.prismaService.task.findUnique({
+      where: { id: taskId },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
     await this.prismaService.timeTracking.deleteMany({
       where: { taskId },
     });
@@ -131,6 +150,19 @@ export class TasksService {
     await this.prismaService.taskAssignment.deleteMany({
       where: { taskId },
     });
+
+    const assignees = await this.prismaService.taskAssignment.findMany({
+      where: { taskId },
+      select: { userId: true },
+    });
+
+    for (const assignee of assignees) {
+      await this.notificationGateway.emitNotification(assignee.userId, {
+        message: `Task deleted: ${task.name}`,
+        userId: assignee.userId,
+        type: 'TASK_DELETED',
+      });
+    }
 
     return await this.prismaService.task.delete({
       where: { id: taskId },
@@ -321,6 +353,28 @@ export class TasksService {
       }
     }
 
+    if (status === TaskStatus.IN_PROGRESS) {
+      await this.notificationGateway.emitNotification(userId, {
+        message: `Task started: ${task.name}`,
+        userId: userId,
+        type: 'TASK_STARTED',
+      });
+    } else if (status === TaskStatus.DONE) {
+      // Notify task assignees
+      const assignees = await this.prismaService.taskAssignment.findMany({
+        where: { taskId },
+        select: { userId: true },
+      });
+
+      for (const assignee of assignees) {
+        await this.notificationGateway.emitNotification(assignee.userId, {
+          message: `Task completed: ${task.name}`,
+          userId: assignee.userId,
+          type: 'TASK_COMPLETED',
+        });
+      }
+    }
+
     return await this.prismaService.task.update({
       where: { id: taskId },
       data: updateData,
@@ -363,6 +417,12 @@ export class TasksService {
       );
     }
 
+    await this.notificationGateway.emitNotification(userId, {
+      message: `Time tracking started for task: ${task.name}`,
+      userId: userId,
+      type: 'TIME_TRACKING_STARTED',
+    });
+
     return await this.prismaService.timeTracking.create({
       data: {
         taskId,
@@ -400,6 +460,20 @@ export class TasksService {
     const startTime = new Date(session.startTime);
     const durationHours =
       (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+
+    const task = await this.prismaService.task.findUnique({
+      where: { id: taskId },
+    });
+
+    if (!task) {
+      throw new NotFoundException('Task not found');
+    }
+
+    await this.notificationGateway.emitNotification(userId, {
+      message: `Time tracking stopped for task: ${task.name}. Duration: ${durationHours.toFixed(2)} hours`,
+      userId: userId,
+      type: 'TIME_TRACKING_STOPPED',
+    });
 
     return await this.prismaService.timeTracking.update({
       where: { id: sessionId },
