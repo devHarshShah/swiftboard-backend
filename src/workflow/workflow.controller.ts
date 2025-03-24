@@ -19,31 +19,31 @@ import { CreateWorkflowDto } from './dto/workflow.dto';
 export class WorkflowController {
   constructor(private readonly workflowService: WorkflowService) {}
 
-  @Post()
+  @Post(':projectId')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new workflow for a project' })
   async createTaskForProject(
     @Param('projectId') projectId: string,
     @Body() createWorkflowDto: CreateWorkflowDto,
   ) {
-    return this.workflowService.createWorkflow(createWorkflowDto);
+    return this.workflowService.createWorkflow(createWorkflowDto, projectId);
   }
 
-  @Get(':id')
+  @Get(':projectId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get specific workflow' })
-  async getAllWorkflowsForProject(@Param('id') id: string) {
-    return this.workflowService.getWorkFlow(id);
+  async getAllWorkflowsForProject(@Param('projectId') projectId: string) {
+    return this.workflowService.getWorkFlow(projectId);
   }
 
-  @Put(':id')
+  @Put(':projectId')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a workflow' })
   async updateWorkflow(
-    @Param('id') id: string,
+    @Param('projectId') projectId: string,
     @Body() createWorkflowDto: CreateWorkflowDto,
   ) {
-    return this.workflowService.updateWorkflow(id, createWorkflowDto);
+    return this.workflowService.updateWorkflow(projectId, createWorkflowDto);
   }
 
   @Post(':projectId/publish')

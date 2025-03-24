@@ -7,11 +7,17 @@ import { TaskStatus } from '@prisma/client';
 export class WorkflowService {
   constructor(private prismaService: PrismaService) {}
 
-  async createWorkflow(createWorkflowDto: CreateWorkflowDto) {
+  async createWorkflow(
+    createWorkflowDto: CreateWorkflowDto,
+    projectId: string,
+  ) {
     try {
       const workflow = await this.prismaService.workFlow.create({
         data: {
           name: createWorkflowDto.name,
+          project: {
+            connect: { id: projectId },
+          },
         },
       });
 
@@ -68,9 +74,9 @@ export class WorkflowService {
     }
   }
 
-  async getWorkFlow(id: string) {
-    const workflow = await this.prismaService.workFlow.findUnique({
-      where: { id },
+  async getWorkFlow(projectId: string) {
+    const workflow = await this.prismaService.workFlow.findFirst({
+      where: { projectId: projectId },
       include: {
         nodes: true,
         edges: true,
@@ -117,21 +123,33 @@ export class WorkflowService {
     };
   }
 
-  async updateWorkflow(id: string, createWorkflowDto: CreateWorkflowDto) {
+  async updateWorkflow(
+    projectId: string,
+    createWorkflowDto: CreateWorkflowDto,
+  ) {
     try {
+      // First find the workflow by projectId
+      const existingWorkflow = await this.prismaService.workFlow.findFirst({
+        where: { projectId: projectId },
+      });
+
+      if (!existingWorkflow) {
+        throw new Error(`No workflow found for project with ID: ${projectId}`);
+      }
+
       const workflow = await this.prismaService.workFlow.update({
-        where: { id },
+        where: { id: existingWorkflow.id },
         data: {
           name: createWorkflowDto.name,
         },
       });
 
       await this.prismaService.nodes.deleteMany({
-        where: { workFlowId: id },
+        where: { workFlowId: workflow.id },
       });
 
       await this.prismaService.edges.deleteMany({
-        where: { workFlowId: id },
+        where: { workFlowId: workflow.id },
       });
 
       const nodes = await this.prismaService.nodes.createMany({
@@ -214,7 +232,12 @@ export class WorkflowService {
         if (!existingWorkflow) {
           // Create new workflow if it doesn't exist
           workflow = await prisma.workFlow.create({
-            data: { name: createWorkflowDto.name },
+            data: {
+              name: createWorkflowDto.name,
+              project: {
+                connect: { id: projectId },
+              },
+            },
           });
 
           // Create nodes
