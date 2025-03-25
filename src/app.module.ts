@@ -14,6 +14,7 @@ import { CustomMailerModule } from './custommailer/custommailer.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
 import { WorkflowModule } from './workflow/workflow.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { WorkflowModule } from './workflow/workflow.module';
     ChatModule,
     NotificationModule,
     WorkflowModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService],

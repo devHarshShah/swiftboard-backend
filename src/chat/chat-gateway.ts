@@ -12,6 +12,7 @@ import { Socket, Server } from 'socket.io';
 import { ChatService } from './chat.service';
 import { AddMessageDto } from './dto/chat.dto';
 import { Logger } from '@nestjs/common';
+import { RedisService } from '../redis/redis.service'; // Import RedisService
 
 @WebSocketGateway({
   namespace: 'chat',
@@ -31,7 +32,10 @@ export class ChatGateway
 
   private userRooms = new Map<string, Set<string>>();
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private redisService: RedisService, // Inject RedisService
+  ) {}
 
   afterInit(server: Server) {
     this.logger.log('Chat Gateway initialized');
@@ -231,16 +235,100 @@ export class ChatGateway
         return { status: 'error', message: 'Invalid sender ID' };
       }
 
+      // Save message
       const savedMessage = await this.chatService.addMessage(payload);
 
-      const roomName = [payload.sender, payload.receiver].sort().join('-');
+      // Increment unread message count for receiver
+      try {
+        const unreadCount = await this.redisService.incrementUnreadCount(
+          payload.receiver,
+          payload.sender,
+        );
 
-      this.server.to(roomName).emit('newMessage', savedMessage);
+        const roomName = [payload.sender, payload.receiver].sort().join('-');
+
+        // Emit message to room with unread count
+        client.to(roomName).emit('newMessage', {
+          ...savedMessage,
+          unreadCount,
+        });
+
+        // Emit back to the sender
+        client.emit('newMessage', {
+          ...savedMessage,
+          unreadCount,
+        });
+      } catch (redisError) {
+        // Redis operation failed, but we still want to deliver the message
+        this.logger.warn(`Redis error: ${redisError.message}`);
+
+        const roomName = [payload.sender, payload.receiver].sort().join('-');
+
+        // Emit message without unread count
+        this.server.to(roomName).emit('newMessage', savedMessage);
+      }
 
       return { status: 'success', message: savedMessage };
     } catch (error) {
       this.logger.error(`Error sending message: ${error.message}`);
       return { status: 'error', message: 'Failed to send message' };
+    }
+  }
+
+  @SubscribeMessage('getUnreadCounts')
+  async handleGetUnreadCounts(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { userId: string },
+  ) {
+    try {
+      // Verify user authentication
+      if (client.data.userId !== data.userId) {
+        this.logger.warn(`User ID mismatch in getUnreadCounts`);
+        return { status: 'error', message: 'User ID mismatch' };
+      }
+
+      // Get unread counts from Redis
+      const unreadCounts = await this.redisService.getAllUnreadCounts(
+        data.userId,
+      );
+
+      client.emit('unreadCounts', unreadCounts);
+
+      return {
+        status: 'success',
+        unreadCounts,
+      };
+    } catch (error) {
+      this.logger.error(`Error getting unread counts: ${error.message}`);
+      return { status: 'error', message: 'Failed to retrieve unread counts' };
+    }
+  }
+
+  @SubscribeMessage('markMessagesAsRead')
+  async handleMarkMessagesAsRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { userId: string; senderId: string },
+  ) {
+    try {
+      // Verify user authentication
+      if (client.data.userId !== data.userId) {
+        this.logger.warn(`User ID mismatch in markMessagesAsRead`);
+        return { status: 'error', message: 'User ID mismatch' };
+      }
+
+      // Reset unread count for specific sender
+      await this.redisService.resetUnreadCount(data.userId, data.senderId);
+
+      // Notify client that messages were marked as read
+      client.emit('messagesMarkedAsRead', {
+        senderId: data.senderId,
+        unreadCount: 0,
+      });
+
+      return { status: 'success' };
+    } catch (error) {
+      this.logger.error(`Error marking messages as read: ${error.message}`);
+      return { status: 'error', message: 'Failed to mark messages as read' };
     }
   }
 
