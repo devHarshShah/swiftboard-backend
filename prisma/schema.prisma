@@ -18,7 +18,6 @@ model User {
   taskAssignments  TaskAssignment[]
   notifications    Notification[]
   activityLogs     ActivityLog[]
-  sprints          Sprint[]
   timeTracking     TimeTracking[]
   apiKeys          ApiKey[]
   webHooks         WebHook[]
@@ -34,7 +33,6 @@ model Team {
   memberships     TeamMembership[] // Users associated with roles in the team
   projects        Project[]
   taskAssignments TaskAssignment[]
-  sprints         Sprint[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @default(now())
 }
@@ -74,7 +72,6 @@ model Task {
   projectId       String
   project         Project          @relation(fields: [projectId], references: [id])
   taskAssignments TaskAssignment[]
-  subTasks        SubTask[]
   timeTracking    TimeTracking[]
   files           File[]
   status          TaskStatus       @default(TODO)
@@ -125,17 +122,6 @@ model TaskAssignment {
   updatedAt DateTime @default(now())
 }
 
-model SubTask {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  taskId      String
-  task        Task     @relation(fields: [taskId], references: [id])
-  completed   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now())
-}
-
 model Notification {
   id        String   @id @default(cuid())
   userId    String
@@ -156,17 +142,6 @@ model ActivityLog {
   updatedAt DateTime @default(now())
 }
 
-model Sprint {
-  id        String   @id @default(cuid())
-  name      String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  teamId    String
-  team      Team     @relation(fields: [teamId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
-}
-
 model File {
   id        String   @id @default(cuid())
   name      String
@@ -178,16 +153,33 @@ model File {
 }
 
 model Message {
-  id         String        @id @default(cuid())
-  text       String // Changed from 'text' to match DTO's 'message' field
-  senderId   String // New field for the sender
-  receiverId String // New field for the receiver
-  sender     User          @relation("SentMessages", fields: [senderId], references: [id])
-  receiver   User          @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  sentAt     DateTime      @default(now()) // For storing the full date and time
-  status     MessageStatus @default(SENT) // Using enum for message status
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @default(now())
+  id          String              @id @default(cuid())
+  text        String? // Changed to optional since a message might only have attachments
+  senderId    String // Field for the sender
+  receiverId  String // Field for the receiver
+  sender      User                @relation("SentMessages", fields: [senderId], references: [id])
+  receiver    User                @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  attachments MessageAttachment[] // Relation to attachments
+  sentAt      DateTime            @default(now()) // For storing the full date and time
+  status      MessageStatus       @default(SENT) // Using enum for message status
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @default(now())
+}
+
+model MessageAttachment {
+  id          String   @id @default(cuid())
+  messageId   String?
+  message     Message? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  filename    String // Original filename
+  fileType    String // MIME type
+  fileSize    Int // Size in bytes
+  s3Key       String // S3 object key
+  s3Bucket    String // S3 bucket name
+  s3Region    String // AWS region
+  s3Url       String // Full URL to access the file
+  contentType String // Content type (image, video, document, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now())
 }
 
 model ApiKey {

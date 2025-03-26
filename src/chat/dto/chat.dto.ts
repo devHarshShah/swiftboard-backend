@@ -1,6 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { MessageStatus } from '@prisma/client';
-import { IsString, IsNotEmpty, IsDateString, IsEnum } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsDateString,
+  IsEnum,
+  IsArray,
+} from 'class-validator';
 
 export class AddMessageDto {
   @ApiProperty({
@@ -8,8 +14,7 @@ export class AddMessageDto {
     example: 'Hello, how are you?',
   })
   @IsString()
-  @IsNotEmpty()
-  text: string;
+  text?: string;
 
   @ApiProperty({
     description: 'ID of the user sending the message',
@@ -50,4 +55,12 @@ export class AddMessageDto {
   @IsEnum(MessageStatus)
   @IsNotEmpty()
   status: MessageStatus;
+
+  @ApiProperty({
+    description: 'List of attachments sent with the message',
+    example: ['https://example.com/image.jpg'],
+  })
+  @IsString({ each: true })
+  @IsArray()
+  attachments?: string[];
 }

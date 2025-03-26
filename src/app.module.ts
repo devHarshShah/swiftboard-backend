@@ -7,7 +7,6 @@ import { ConfigModule } from '@nestjs/config';
 import { TeamsModule } from './teams/teams.module';
 import { ProjectsModule } from './projects/projects.module';
 import { TasksModule } from './tasks/tasks.module';
-import { SubtasksModule } from './subtasks/subtasks.module';
 import { UsersModule } from './users/users.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { CustomMailerModule } from './custommailer/custommailer.module';
@@ -41,7 +40,6 @@ import { RedisModule } from './redis/redis.module';
     TeamsModule,
     ProjectsModule,
     TasksModule,
-    SubtasksModule,
     UsersModule,
     CustomMailerModule,
     ChatModule,
