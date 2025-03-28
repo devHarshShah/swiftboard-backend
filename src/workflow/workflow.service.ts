@@ -214,43 +214,46 @@ export class WorkflowService {
   ) {
     try {
       return await this.prismaService.$transaction(async (prisma) => {
-        // Check if workflow already exists
+        // First find the workflow by projectId
         const existingWorkflow = await prisma.workFlow.findFirst({
-          where: {
+          where: { projectId: projectId },
+        });
+
+        if (!existingWorkflow) {
+          throw new Error(
+            `No workflow found for project with ID: ${projectId}`,
+          );
+        }
+
+        const workflow = await prisma.workFlow.update({
+          where: { id: existingWorkflow.id },
+          data: {
             name: createWorkflowDto.name,
-          },
-          include: {
-            nodes: true,
-            edges: true,
           },
         });
 
-        let workflow;
-        let nodes;
-        let edges;
+        // Create/update nodes and edges
+        await prisma.nodes.deleteMany({
+          where: { workFlowId: workflow.id },
+        });
 
-        if (!existingWorkflow) {
-          // Create new workflow if it doesn't exist
-          workflow = await prisma.workFlow.create({
-            data: {
-              name: createWorkflowDto.name,
-              project: {
-                connect: { id: projectId },
-              },
-            },
-          });
+        await prisma.edges.deleteMany({
+          where: { workFlowId: workflow.id },
+        });
 
-          // Create nodes
-          nodes = await prisma.nodes.createMany({
-            data: createWorkflowDto.nodes.map((node) => ({
+        const nodes = await prisma.nodes.createMany({
+          data: createWorkflowDto.nodes.map((node) => {
+            const dataWithParsedConfig = {
+              ...node.data,
+              config: JSON.parse(node.data.config),
+            };
+
+            return {
               id: node.id,
               type: node.type,
               positionX: node.positionX,
               positionY: node.positionY,
-              data: {
-                ...node.data,
-                config: JSON.parse(node.data.config),
-              },
+              data: dataWithParsedConfig,
               width: node.width,
               height: node.height,
               selected: node.selected,
@@ -258,12 +261,15 @@ export class WorkflowService {
               positionAbsoluteY: node.positionAbsoluteY,
               dragging: node.dragging,
               workFlowId: workflow.id,
-            })),
-          });
+            };
+          }),
+        });
 
-          // Create edges
-          edges = await prisma.edges.createMany({
-            data: createWorkflowDto.edges.map((edge) => ({
+        const edges = await prisma.edges.createMany({
+          data: createWorkflowDto.edges.map((edge) => {
+            const styleData = JSON.parse(edge.style);
+
+            return {
               id: edge.id,
               type: edge.type,
               source: edge.source,
@@ -271,15 +277,11 @@ export class WorkflowService {
               target: edge.target,
               targetHandle: edge.targetHandle || null,
               animated: edge.animated,
-              style: JSON.parse(edge.style),
+              style: styleData,
               workFlowId: workflow.id,
-            })),
-          });
-        } else {
-          workflow = existingWorkflow;
-          nodes = { count: existingWorkflow.nodes.length };
-          edges = { count: existingWorkflow.edges.length };
-        }
+            };
+          }),
+        });
 
         // Get task nodes
         const taskNodes = createWorkflowDto.nodes.filter(
@@ -287,28 +289,61 @@ export class WorkflowService {
         );
 
         // Check for existing tasks to avoid recreation
+        // We'll use a combination of name and node ID to make tasks unique
         const existingTasks = await prisma.task.findMany({
           where: {
             projectId,
-            name: { in: taskNodes.map((node) => node.data.label) },
           },
           include: {
             blockedBy: true,
             blocking: true,
+            taskAssignments: true,
           },
         });
 
+        // Create a mapping from task nodeId to task database ID
+        // This will help us handle tasks with duplicate names
+        const nodeIdToTaskMap = new Map();
+
+        // We'll also keep a map from task name to task for backwards compatibility
         const existingTasksMap = new Map(
           existingTasks.map((task) => [task.name, task]),
         );
 
         // First pass: Create or update tasks without dependencies
-        const taskMap = new Map<string, string>();
         const taskPromises = taskNodes.map(async (node) => {
           const config = JSON.parse(node.data.config);
-          const existingTask = existingTasksMap.get(node.data.label);
+
+          // Store the node ID in the task metadata to identify it later
+          const nodeId = node.id;
+          const taskName = node.data.label;
+
+          console.log(`Processing task node: ${nodeId} with name: ${taskName}`);
+          console.log(`Config:`, config);
+
+          // Check if this exact node has been processed before (using metadata)
+          const existingTask = existingTasks.find((task) => {
+            try {
+              const metadata = task.metadata ? JSON.parse(task.metadata) : {};
+              return metadata.nodeId === nodeId;
+            } catch (e) {
+              return false;
+            }
+          });
+
+          // Debug user IDs
+          if (config.userIds?.length > 0) {
+            console.log(
+              `User IDs for task ${taskName} (nodeId: ${nodeId}):`,
+              config.userIds,
+            );
+          }
 
           if (existingTask) {
+            console.log(
+              `Updating existing task: ${existingTask.id} for node: ${nodeId}`,
+            );
+
             // Clear existing dependencies
             await prisma.task.update({
               where: { id: existingTask.id },
@@ -326,102 +361,220 @@ export class WorkflowService {
               },
             });
 
-            // Update existing task
+            // First delete existing task assignments
+            await prisma.taskAssignment.deleteMany({
+              where: { taskId: existingTask.id },
+            });
+
+            // Then update task with new assignments
             const updatedTask = await prisma.task.update({
               where: { id: existingTask.id },
               data: {
-                description: node.data.description,
+                name: taskName,
+                description: node.data.description || existingTask.description,
+                metadata: JSON.stringify({ nodeId }), // Store node ID in metadata
                 taskAssignments: {
-                  deleteMany: {},
                   create:
-                    config.userIds?.map((userId: string) => ({
+                    config.userIds?.filter(Boolean).map((userId: string) => ({
                       userId,
                       teamId: null,
                     })) || [],
                 },
               },
             });
-            taskMap.set(node.data.label, updatedTask.id);
+
+            // Store both mappings
+            nodeIdToTaskMap.set(nodeId, updatedTask.id);
             return updatedTask;
           } else {
+            console.log(
+              `Creating new task for node: ${nodeId} with name: ${taskName}`,
+            );
+
             // Create new task
             const newTask = await prisma.task.create({
               data: {
-                name: node.data.label,
-                description: node.data.description,
+                name: taskName,
+                description: node.data.description || '',
                 status: TaskStatus.TODO,
-                projectId,
+                metadata: JSON.stringify({ nodeId }), // Store node ID in metadata
+                project: {
+                  connect: { id: projectId },
+                },
                 taskAssignments: {
                   create:
-                    config.userIds?.map((userId: string) => ({
+                    config.userIds?.filter(Boolean).map((userId: string) => ({
                       userId,
                       teamId: null,
                     })) || [],
                 },
               },
             });
-            taskMap.set(node.data.label, newTask.id);
+
+            // Store both mappings
+            nodeIdToTaskMap.set(nodeId, newTask.id);
             return newTask;
           }
         });
 
         const tasks = await Promise.all(taskPromises);
 
-        // Second pass: Set up dependencies
+        // Debug the task map
+        console.log('Node ID to Task ID map:');
+        nodeIdToTaskMap.forEach((taskId, nodeId) => {
+          console.log(`Node ${nodeId} -> Task ${taskId}`);
+        });
+
+        // Second pass: Set up dependencies based on node IDs, not task names
         for (const node of taskNodes) {
+          const nodeId = node.id;
           const config = JSON.parse(node.data.config);
-          const taskId = taskMap.get(node.data.label);
+          const taskId = nodeIdToTaskMap.get(nodeId);
 
-          if (taskId) {
-            // Handle blockedBy relationships
-            if (config.blockedBy?.length) {
-              const blockedByIds = config.blockedBy
-                .map((blockedTask: { id: string; name: string }) =>
-                  taskMap.get(blockedTask.name),
-                )
-                .filter(Boolean);
+          if (!taskId) {
+            console.log(`Warning: Task ID not found for node ${nodeId}`);
+            continue;
+          }
 
-              if (blockedByIds.length > 0) {
-                await prisma.task.update({
-                  where: { id: taskId },
-                  data: {
-                    blockedBy: {
-                      connect: blockedByIds.map((id) => ({ id })),
-                    },
+          // Handle blockedBy relationships
+          if (config.blockedBy?.length) {
+            const blockedByIds = config.blockedBy
+              .map((blockedTask: { id: string; name: string }) => {
+                const blockedNodeId = blockedTask.id;
+
+                // Skip self-references
+                if (blockedNodeId === nodeId) {
+                  console.log(
+                    `Skipping self-reference in blockedBy for node ${nodeId}`,
+                  );
+                  return null;
+                }
+
+                const blockedTaskId = nodeIdToTaskMap.get(blockedNodeId);
+                if (!blockedTaskId) {
+                  console.log(
+                    `Warning: Couldn't find task ID for node ${blockedNodeId}`,
+                  );
+                  return null;
+                }
+                return blockedTaskId;
+              })
+              .filter(Boolean);
+
+            if (blockedByIds.length > 0) {
+              console.log(
+                `Setting blockedBy for node ${nodeId}:`,
+                blockedByIds,
+              );
+
+              await prisma.task.update({
+                where: { id: taskId },
+                data: {
+                  blockedBy: {
+                    connect: blockedByIds.map((id) => ({ id })),
                   },
-                });
-              }
+                },
+              });
             }
+          }
 
-            // Handle blocking relationships
-            if (config.blocking?.length) {
-              const blockingIds = config.blocking
-                .map((blockingTask: { id: string; name: string }) =>
-                  taskMap.get(blockingTask.name),
-                )
-                .filter(Boolean);
+          // Handle blocking relationships
+          if (config.blocking?.length) {
+            const blockingIds = config.blocking
+              .map((blockingTask: { id: string; name: string }) => {
+                const blockingNodeId = blockingTask.id;
 
-              if (blockingIds.length > 0) {
-                await prisma.task.update({
-                  where: { id: taskId },
-                  data: {
-                    blocking: {
-                      connect: blockingIds.map((id) => ({ id })),
-                    },
+                // Skip self-references
+                if (blockingNodeId === nodeId) {
+                  console.log(
+                    `Skipping self-reference in blocking for node ${nodeId}`,
+                  );
+                  return null;
+                }
+
+                const blockingTaskId = nodeIdToTaskMap.get(blockingNodeId);
+                if (!blockingTaskId) {
+                  console.log(
+                    `Warning: Couldn't find task ID for node ${blockingNodeId}`,
+                  );
+                  return null;
+                }
+                return blockingTaskId;
+              })
+              .filter(Boolean);
+
+            if (blockingIds.length > 0) {
+              console.log(`Setting blocking for node ${nodeId}:`, blockingIds);
+
+              await prisma.task.update({
+                where: { id: taskId },
+                data: {
+                  blocking: {
+                    connect: blockingIds.map((id) => ({ id })),
                   },
-                });
-              }
+                },
+              });
             }
           }
         }
+
+        // Verify all relationships were established properly
+        const verifiedTasks = await prisma.task.findMany({
+          where: {
+            projectId,
+            metadata: { not: null }, // Only get tasks that have metadata (created by workflow)
+          },
+          include: {
+            blockedBy: {
+              select: { id: true, name: true, metadata: true },
+            },
+            blocking: {
+              select: { id: true, name: true, metadata: true },
+            },
+            taskAssignments: {
+              include: {
+                user: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+          },
+        });
+
+        console.log('Verification of created tasks:');
+        verifiedTasks.forEach((task) => {
+          let nodeId = 'unknown';
+          try {
+            nodeId = task.metadata
+              ? JSON.parse(task.metadata).nodeId
+              : 'unknown';
+          } catch (e) {}
+
+          console.log(`Task: ${task.name} (${task.id}) - Node: ${nodeId}`);
+          console.log(
+            `- BlockedBy: ${task.blockedBy.map((t) => t.name).join(', ') || 'none'}`,
+          );
+          console.log(
+            `- Blocking: ${task.blocking.map((t) => t.name).join(', ') || 'none'}`,
+          );
+          console.log(
+            `- Assigned users: ${task.taskAssignments.map((a) => a.user.name).join(', ') || 'none'}`,
+          );
+        });
+
         return {
           workflow,
-          nodesCount: nodes.count,
-          edgesCount: edges.count,
-          tasksCreated: tasks.filter((t) => !existingTasksMap.has(t.name))
-            .length,
-          tasksUpdated: tasks.filter((t) => existingTasksMap.has(t.name))
-            .length,
+          nodesCount:
+            typeof nodes.count === 'number'
+              ? nodes.count
+              : createWorkflowDto.nodes.length,
+          edgesCount:
+            typeof edges.count === 'number'
+              ? edges.count
+              : createWorkflowDto.edges.length,
+          tasksCreated: tasks.filter((t) => !t.id).length,
+          tasksUpdated: tasks.filter((t) => t.id).length,
+          tasks: verifiedTasks, // Return the verified tasks for debugging
         };
       });
     } catch (error) {

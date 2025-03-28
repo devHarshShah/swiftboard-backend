@@ -75,6 +75,7 @@ model Task {
   timeTracking    TimeTracking[]
   files           File[]
   status          TaskStatus       @default(TODO)
+  metadata        String?
 
   // Time tracking fields
   dueDate        DateTime? // When the task is due
