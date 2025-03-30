@@ -15,9 +15,12 @@ import { NotificationModule } from './notification/notification.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { RedisModule } from './redis/redis.module';
 import { LoggerModule } from './logger/logger.module';
+import { ErrorModule } from './error/error.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
+    ErrorModule, // Add this at the top to ensure it's available to all other modules
     AuthModule,
     PrismaModule,
     ConfigModule.forRoot({
@@ -48,6 +51,7 @@ import { LoggerModule } from './logger/logger.module';
     WorkflowModule,
     RedisModule,
     LoggerModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

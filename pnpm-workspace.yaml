@@ -7,3 +7,5 @@ ignoredBuiltDependencies:
   - bcrypt
   - esbuild
   - prisma
+onlyBuiltDependencies:
+  - aws-sdk

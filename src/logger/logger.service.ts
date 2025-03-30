@@ -7,7 +7,7 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Inject } from '@nestjs/common';
 import { Logger as WinstonLogger } from 'winston';
 
-@Injectable({ scope: Scope.TRANSIENT })
+@Injectable()
 export class LoggerService implements NestLoggerService {
   private context?: string;
 
