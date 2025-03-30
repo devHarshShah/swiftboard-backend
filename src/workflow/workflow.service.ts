@@ -2,15 +2,26 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateWorkflowDto } from './dto/workflow.dto';
 import { TaskStatus } from '@prisma/client';
+import { LoggerService } from '../logger/logger.service';
 
 @Injectable()
 export class WorkflowService {
-  constructor(private prismaService: PrismaService) {}
+  constructor(
+    private prismaService: PrismaService,
+    private logger: LoggerService,
+  ) {
+    this.logger.setContext('WorkflowService');
+  }
 
   async createWorkflow(
     createWorkflowDto: CreateWorkflowDto,
     projectId: string,
   ) {
+    this.logger.log(`Creating workflow for project: ${projectId}`);
+    this.logger.debug(
+      `Workflow creation request with ${createWorkflowDto.nodes.length} nodes and ${createWorkflowDto.edges.length} edges`,
+    );
+
     try {
       const workflow = await this.prismaService.workFlow.create({
         data: {
@@ -20,6 +31,7 @@ export class WorkflowService {
           },
         },
       });
+      this.logger.debug(`Created workflow: ${workflow.id} - ${workflow.name}`);
 
       const nodes = await this.prismaService.nodes.createMany({
         data: createWorkflowDto.nodes.map((node) => {
@@ -44,6 +56,9 @@ export class WorkflowService {
           };
         }),
       });
+      this.logger.debug(
+        `Created ${nodes.count} nodes for workflow ${workflow.id}`,
+      );
 
       const edges = await this.prismaService.edges.createMany({
         data: createWorkflowDto.edges.map((edge) => {
@@ -62,71 +77,106 @@ export class WorkflowService {
           };
         }),
       });
+      this.logger.debug(
+        `Created ${edges.count} edges for workflow ${workflow.id}`,
+      );
 
+      this.logger.log(
+        `Successfully created workflow ${workflow.id} for project ${projectId}`,
+      );
       return {
         workflow,
         nodesCount: nodes.count,
         edgesCount: edges.count,
       };
     } catch (error) {
-      console.error('Error creating workflow:', error);
+      this.logger.error(
+        `Error creating workflow: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
   async getWorkFlow(projectId: string) {
-    const workflow = await this.prismaService.workFlow.findFirst({
-      where: { projectId: projectId },
-      include: {
-        nodes: true,
-        edges: true,
-      },
-    });
+    this.logger.log(`Retrieving workflow for project: ${projectId}`);
 
-    if (!workflow) {
-      return null;
+    try {
+      const workflow = await this.prismaService.workFlow.findFirst({
+        where: { projectId: projectId },
+        include: {
+          nodes: true,
+          edges: true,
+        },
+      });
+
+      if (!workflow) {
+        this.logger.warn(`No workflow found for project: ${projectId}`);
+        return null;
+      }
+
+      this.logger.debug(
+        `Found workflow ${workflow.id} with ${workflow.nodes.length} nodes and ${workflow.edges.length} edges`,
+      );
+
+      // Transform the data for frontend consumption
+      const transformedData = {
+        id: workflow.id,
+        name: workflow.name,
+        nodes: workflow.nodes.map((node) => ({
+          id: node.id,
+          type: node.type,
+          position: {
+            x: node.positionX,
+            y: node.positionY,
+          },
+          data: node.data,
+          width: node.width,
+          height: node.height,
+          selected: node.selected,
+          positionAbsolute: {
+            x: node.positionAbsoluteX,
+            y: node.positionAbsoluteY,
+          },
+          dragging: node.dragging,
+        })),
+        edges: workflow.edges.map((edge) => ({
+          id: edge.id,
+          type: edge.type,
+          style: edge.style,
+          source: edge.source,
+          sourceHandle: edge.sourceHandle,
+          target: edge.target,
+          targetHandle: edge.targetHandle,
+          animated: edge.animated,
+        })),
+        createdAt: workflow.createdAt,
+        updatedAt: workflow.updatedAt,
+      };
+
+      this.logger.debug(`Successfully transformed workflow data for frontend`);
+      this.logger.log(
+        `Retrieved workflow ${workflow.id} for project ${projectId}`,
+      );
+      return transformedData;
+    } catch (error) {
+      this.logger.error(
+        `Error retrieving workflow for project ${projectId}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
-
-    // Transform the data for frontend consumption
-    return {
-      id: workflow.id,
-      name: workflow.name,
-      nodes: workflow.nodes.map((node) => ({
-        id: node.id,
-        type: node.type,
-        position: {
-          x: node.positionX,
-          y: node.positionY,
-        },
-        data: node.data,
-        width: node.width,
-        height: node.height,
-        selected: node.selected,
-        positionAbsolute: {
-          x: node.positionAbsoluteX,
-          y: node.positionAbsoluteY,
-        },
-        dragging: node.dragging,
-      })),
-      edges: workflow.edges.map((edge) => ({
-        id: edge.id,
-        type: edge.type,
-        style: edge.style,
-        source: edge.source,
-        sourceHandle: edge.sourceHandle,
-        target: edge.target,
-        targetHandle: edge.targetHandle,
-        animated: edge.animated,
-      })),
-      createdAt: workflow.createdAt,
-      updatedAt: workflow.updatedAt,
-    };
   }
 
   async updateWorkflow(
     projectId: string,
     createWorkflowDto: CreateWorkflowDto,
   ) {
+    this.logger.log(`Updating workflow for project: ${projectId}`);
+    this.logger.debug(
+      `Workflow update with ${createWorkflowDto.nodes.length} nodes and ${createWorkflowDto.edges.length} edges`,
+    );
+
     try {
       // First find the workflow by projectId
       const existingWorkflow = await this.prismaService.workFlow.findFirst({
@@ -134,8 +184,11 @@ export class WorkflowService {
       });
 
       if (!existingWorkflow) {
+        this.logger.warn(`No workflow found for project with ID: ${projectId}`);
         throw new Error(`No workflow found for project with ID: ${projectId}`);
       }
+
+      this.logger.debug(`Found existing workflow: ${existingWorkflow.id}`);
 
       const workflow = await this.prismaService.workFlow.update({
         where: { id: existingWorkflow.id },
@@ -143,15 +196,21 @@ export class WorkflowService {
           name: createWorkflowDto.name,
         },
       });
+      this.logger.debug(`Updated workflow name to: ${workflow.name}`);
 
-      await this.prismaService.nodes.deleteMany({
+      // Delete existing nodes
+      const deletedNodes = await this.prismaService.nodes.deleteMany({
         where: { workFlowId: workflow.id },
       });
+      this.logger.debug(`Deleted ${deletedNodes.count} existing nodes`);
 
-      await this.prismaService.edges.deleteMany({
+      // Delete existing edges
+      const deletedEdges = await this.prismaService.edges.deleteMany({
         where: { workFlowId: workflow.id },
       });
+      this.logger.debug(`Deleted ${deletedEdges.count} existing edges`);
 
+      // Create new nodes
       const nodes = await this.prismaService.nodes.createMany({
         data: createWorkflowDto.nodes.map((node) => {
           const dataWithParsedConfig = {
@@ -175,6 +234,7 @@ export class WorkflowService {
           };
         }),
       });
+      this.logger.debug(`Created ${nodes.count} new nodes`);
 
       // Create all edges associated with this workflow
       const edges = await this.prismaService.edges.createMany({
@@ -195,7 +255,11 @@ export class WorkflowService {
           };
         }),
       });
+      this.logger.debug(`Created ${edges.count} new edges`);
 
+      this.logger.log(
+        `Successfully updated workflow ${workflow.id} for project ${projectId}`,
+      );
       // Return the created workflow with counts of created nodes and edges
       return {
         workflow,
@@ -203,7 +267,10 @@ export class WorkflowService {
         edgesCount: edges.count,
       };
     } catch (error) {
-      console.error('Error updating workflow:', error);
+      this.logger.error(
+        `Error updating workflow for project ${projectId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -212,6 +279,11 @@ export class WorkflowService {
     projectId: string,
     createWorkflowDto: CreateWorkflowDto,
   ) {
+    this.logger.log(`Publishing workflow for project: ${projectId}`);
+    this.logger.debug(
+      `Publishing workflow with ${createWorkflowDto.nodes.length} nodes and ${createWorkflowDto.edges.length} edges`,
+    );
+
     try {
       return await this.prismaService.$transaction(async (prisma) => {
         // First find the workflow by projectId
@@ -220,10 +292,15 @@ export class WorkflowService {
         });
 
         if (!existingWorkflow) {
+          this.logger.warn(
+            `No workflow found for project with ID: ${projectId}`,
+          );
           throw new Error(
             `No workflow found for project with ID: ${projectId}`,
           );
         }
+
+        this.logger.debug(`Found existing workflow: ${existingWorkflow.id}`);
 
         const workflow = await prisma.workFlow.update({
           where: { id: existingWorkflow.id },
@@ -231,15 +308,18 @@ export class WorkflowService {
             name: createWorkflowDto.name,
           },
         });
+        this.logger.debug(`Updated workflow name to: ${workflow.name}`);
 
         // Create/update nodes and edges
-        await prisma.nodes.deleteMany({
+        const deletedNodes = await prisma.nodes.deleteMany({
           where: { workFlowId: workflow.id },
         });
+        this.logger.debug(`Deleted ${deletedNodes.count} existing nodes`);
 
-        await prisma.edges.deleteMany({
+        const deletedEdges = await prisma.edges.deleteMany({
           where: { workFlowId: workflow.id },
         });
+        this.logger.debug(`Deleted ${deletedEdges.count} existing edges`);
 
         const nodes = await prisma.nodes.createMany({
           data: createWorkflowDto.nodes.map((node) => {
@@ -264,6 +344,7 @@ export class WorkflowService {
             };
           }),
         });
+        this.logger.debug(`Created ${nodes.count} new nodes`);
 
         const edges = await prisma.edges.createMany({
           data: createWorkflowDto.edges.map((edge) => {
@@ -282,14 +363,15 @@ export class WorkflowService {
             };
           }),
         });
+        this.logger.debug(`Created ${edges.count} new edges`);
 
         // Get task nodes
         const taskNodes = createWorkflowDto.nodes.filter(
           (node) => node.data.type === 'task',
         );
+        this.logger.debug(`Found ${taskNodes.length} task nodes to process`);
 
         // Check for existing tasks to avoid recreation
-        // We'll use a combination of name and node ID to make tasks unique
         const existingTasks = await prisma.task.findMany({
           where: {
             projectId,
@@ -300,9 +382,11 @@ export class WorkflowService {
             taskAssignments: true,
           },
         });
+        this.logger.debug(
+          `Found ${existingTasks.length} existing tasks in project`,
+        );
 
         // Create a mapping from task nodeId to task database ID
-        // This will help us handle tasks with duplicate names
         const nodeIdToTaskMap = new Map();
 
         // We'll also keep a map from task name to task for backwards compatibility
@@ -311,6 +395,7 @@ export class WorkflowService {
         );
 
         // First pass: Create or update tasks without dependencies
+        this.logger.debug(`Starting first pass: Creating or updating tasks`);
         const taskPromises = taskNodes.map(async (node) => {
           const config = JSON.parse(node.data.config);
 
@@ -318,8 +403,9 @@ export class WorkflowService {
           const nodeId = node.id;
           const taskName = node.data.label;
 
-          console.log(`Processing task node: ${nodeId} with name: ${taskName}`);
-          console.log(`Config:`, config);
+          this.logger.debug(
+            `Processing task node: ${nodeId} with name: ${taskName}`,
+          );
 
           // Check if this exact node has been processed before (using metadata)
           const existingTask = existingTasks.find((task) => {
@@ -333,14 +419,13 @@ export class WorkflowService {
 
           // Debug user IDs
           if (config.userIds?.length > 0) {
-            console.log(
-              `User IDs for task ${taskName} (nodeId: ${nodeId}):`,
-              config.userIds,
+            this.logger.debug(
+              `User IDs for task ${taskName} (nodeId: ${nodeId}): ${config.userIds.join(', ')}`,
             );
           }
 
           if (existingTask) {
-            console.log(
+            this.logger.debug(
               `Updating existing task: ${existingTask.id} for node: ${nodeId}`,
             );
 
@@ -360,11 +445,17 @@ export class WorkflowService {
                 },
               },
             });
+            this.logger.debug(
+              `Cleared existing dependencies for task: ${existingTask.id}`,
+            );
 
             // First delete existing task assignments
-            await prisma.taskAssignment.deleteMany({
+            const deletedAssignments = await prisma.taskAssignment.deleteMany({
               where: { taskId: existingTask.id },
             });
+            this.logger.debug(
+              `Deleted ${deletedAssignments.count} existing task assignments`,
+            );
 
             // Then update task with new assignments
             const updatedTask = await prisma.task.update({
@@ -382,12 +473,15 @@ export class WorkflowService {
                 },
               },
             });
+            this.logger.debug(
+              `Updated task: ${updatedTask.id} with ${config.userIds?.length || 0} assignments`,
+            );
 
             // Store both mappings
             nodeIdToTaskMap.set(nodeId, updatedTask.id);
             return updatedTask;
           } else {
-            console.log(
+            this.logger.debug(
               `Creating new task for node: ${nodeId} with name: ${taskName}`,
             );
 
@@ -410,6 +504,9 @@ export class WorkflowService {
                 },
               },
             });
+            this.logger.debug(
+              `Created new task: ${newTask.id} with ${config.userIds?.length || 0} assignments`,
+            );
 
             // Store both mappings
             nodeIdToTaskMap.set(nodeId, newTask.id);
@@ -418,21 +515,25 @@ export class WorkflowService {
         });
 
         const tasks = await Promise.all(taskPromises);
+        this.logger.debug(
+          `Completed first pass: ${tasks.length} tasks processed`,
+        );
 
         // Debug the task map
-        console.log('Node ID to Task ID map:');
+        this.logger.debug('Node ID to Task ID map created');
         nodeIdToTaskMap.forEach((taskId, nodeId) => {
-          console.log(`Node ${nodeId} -> Task ${taskId}`);
+          this.logger.debug(`Node ${nodeId} -> Task ${taskId}`);
         });
 
         // Second pass: Set up dependencies based on node IDs, not task names
+        this.logger.debug(`Starting second pass: Setting up task dependencies`);
         for (const node of taskNodes) {
           const nodeId = node.id;
           const config = JSON.parse(node.data.config);
           const taskId = nodeIdToTaskMap.get(nodeId);
 
           if (!taskId) {
-            console.log(`Warning: Task ID not found for node ${nodeId}`);
+            this.logger.warn(`Warning: Task ID not found for node ${nodeId}`);
             continue;
           }
 
@@ -444,7 +545,7 @@ export class WorkflowService {
 
                 // Skip self-references
                 if (blockedNodeId === nodeId) {
-                  console.log(
+                  this.logger.debug(
                     `Skipping self-reference in blockedBy for node ${nodeId}`,
                   );
                   return null;
@@ -452,8 +553,8 @@ export class WorkflowService {
 
                 const blockedTaskId = nodeIdToTaskMap.get(blockedNodeId);
                 if (!blockedTaskId) {
-                  console.log(
-                    `Warning: Couldn't find task ID for node ${blockedNodeId}`,
+                  this.logger.warn(
+                    `Couldn't find task ID for node ${blockedNodeId}`,
                   );
                   return null;
                 }
@@ -462,9 +563,8 @@ export class WorkflowService {
               .filter(Boolean);
 
             if (blockedByIds.length > 0) {
-              console.log(
-                `Setting blockedBy for node ${nodeId}:`,
-                blockedByIds,
+              this.logger.debug(
+                `Setting ${blockedByIds.length} blockedBy dependencies for node ${nodeId}`,
               );
 
               await prisma.task.update({
@@ -486,7 +586,7 @@ export class WorkflowService {
 
                 // Skip self-references
                 if (blockingNodeId === nodeId) {
-                  console.log(
+                  this.logger.debug(
                     `Skipping self-reference in blocking for node ${nodeId}`,
                   );
                   return null;
@@ -494,8 +594,8 @@ export class WorkflowService {
 
                 const blockingTaskId = nodeIdToTaskMap.get(blockingNodeId);
                 if (!blockingTaskId) {
-                  console.log(
-                    `Warning: Couldn't find task ID for node ${blockingNodeId}`,
+                  this.logger.warn(
+                    `Couldn't find task ID for node ${blockingNodeId}`,
                   );
                   return null;
                 }
@@ -504,7 +604,9 @@ export class WorkflowService {
               .filter(Boolean);
 
             if (blockingIds.length > 0) {
-              console.log(`Setting blocking for node ${nodeId}:`, blockingIds);
+              this.logger.debug(
+                `Setting ${blockingIds.length} blocking dependencies for node ${nodeId}`,
+              );
 
               await prisma.task.update({
                 where: { id: taskId },
@@ -517,6 +619,9 @@ export class WorkflowService {
             }
           }
         }
+        this.logger.debug(
+          `Completed second pass: Set up dependencies for tasks`,
+        );
 
         // Verify all relationships were established properly
         const verifiedTasks = await prisma.task.findMany({
@@ -540,8 +645,11 @@ export class WorkflowService {
             },
           },
         });
+        this.logger.debug(
+          `Verification: Retrieved ${verifiedTasks.length} tasks with relationships`,
+        );
 
-        console.log('Verification of created tasks:');
+        this.logger.debug('Starting verification of task relationships');
         verifiedTasks.forEach((task) => {
           let nodeId = 'unknown';
           try {
@@ -550,18 +658,23 @@ export class WorkflowService {
               : 'unknown';
           } catch (e) {}
 
-          console.log(`Task: ${task.name} (${task.id}) - Node: ${nodeId}`);
-          console.log(
+          this.logger.debug(
+            `Verified task: ${task.name} (${task.id}) - Node: ${nodeId}`,
+          );
+          this.logger.debug(
             `- BlockedBy: ${task.blockedBy.map((t) => t.name).join(', ') || 'none'}`,
           );
-          console.log(
+          this.logger.debug(
             `- Blocking: ${task.blocking.map((t) => t.name).join(', ') || 'none'}`,
           );
-          console.log(
+          this.logger.debug(
             `- Assigned users: ${task.taskAssignments.map((a) => a.user.name).join(', ') || 'none'}`,
           );
         });
 
+        this.logger.log(
+          `Successfully published workflow for project ${projectId}`,
+        );
         return {
           workflow,
           nodesCount:
@@ -578,7 +691,10 @@ export class WorkflowService {
         };
       });
     } catch (error) {
-      console.error('Error publishing workflow:', error);
+      this.logger.error(
+        `Error publishing workflow for project ${projectId}: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
