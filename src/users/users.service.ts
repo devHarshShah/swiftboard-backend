@@ -1,119 +1,120 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
+import { BaseService } from '../common/services/base.service';
 import { LoggerService } from '../logger/logger.service';
+import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
 
 @Injectable()
-export class UsersService {
+export class UsersService extends BaseService {
   constructor(
     private readonly prisma: PrismaService,
-    private logger: LoggerService,
+    logger: LoggerService,
   ) {
+    super(logger);
     this.logger.setContext('UsersService');
   }
 
-  async createUser(createUserDto: CreateUserDto) {
-    this.logger.log('Creating new user');
-    this.logger.debug(
-      `User creation data: ${JSON.stringify({
-        ...createUserDto,
-        password: '[REDACTED]', // Don't log sensitive information
-      })}`,
+  async getAllUsers(page = 1, limit = 10) {
+    return this.executeDbOperation(
+      () =>
+        this.prisma.user.findMany({
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+      'Failed to retrieve users',
+      { page, limit },
+    );
+  }
+
+  async getUserById(id: string) {
+    const user = await this.executeDbOperation(
+      () => this.prisma.user.findUnique({ where: { id } }),
+      'Failed to retrieve user',
+      { userId: id },
     );
 
-    const user = await this.prisma.user.create({
-      data: createUserDto,
-    });
+    this.validateBusinessRule(
+      !!user,
+      'User not found',
+      'USER_NOT_FOUND',
+      HttpStatus.NOT_FOUND,
+      { userId: id },
+    );
 
-    this.logger.log(`Successfully created user: ${user.name} (${user.id})`);
     return user;
   }
 
-  async getAllUsers() {
-    this.logger.log('Retrieving all users');
+  async createUser(createUserDto: CreateUserDto) {
+    // Validate business rules before attempting to create
+    await this.validateUserData(createUserDto);
 
-    const users = await this.prisma.user.findMany();
-
-    this.logger.debug(`Retrieved ${users.length} users`);
-    return users;
+    return this.executeDbOperation(
+      () => this.prisma.user.create({ data: createUserDto }),
+      'Failed to create user',
+      { userData: createUserDto },
+    );
   }
 
-  async getUserById(userId: string) {
-    this.logger.log(`Retrieving user with ID: ${userId}`);
+  async updateUser(id: string, updateUserDto: UpdateUserDto) {
+    // Check if user exists
+    await this.getUserById(id);
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      this.logger.warn(`User with ID ${userId} not found`);
-      throw new NotFoundException('User not found');
+    // Validate update data if needed
+    if (updateUserDto.email) {
+      await this.validateEmailAvailability(updateUserDto.email, id);
     }
 
-    this.logger.debug(`Found user: ${user.name} (${userId})`);
-    return user;
+    return this.executeDbOperation(
+      () =>
+        this.prisma.user.update({
+          where: { id },
+          data: updateUserDto,
+        }),
+      'Failed to update user',
+      { userId: id, updateData: updateUserDto },
+    );
   }
 
-  async updateUser(userId: string, updateUserDto: UpdateUserDto) {
-    this.logger.log(`Updating user with ID: ${userId}`);
+  async deleteUser(id: string) {
+    // Check if user exists
+    await this.getUserById(id);
 
-    // Don't log passwords
-    const logSafeDto = { ...updateUserDto };
-    if (logSafeDto.password) {
-      logSafeDto.password = '[REDACTED]';
-    }
-    this.logger.debug(`Update data: ${JSON.stringify(logSafeDto)}`);
-
-    try {
-      const updatedUser = await this.prisma.user.update({
-        where: { id: userId },
-        data: updateUserDto,
-      });
-
-      this.logger.log(
-        `Successfully updated user: ${updatedUser.name} (${userId})`,
-      );
-      return updatedUser;
-    } catch (error) {
-      this.logger.error(
-        `Error updating user ${userId}: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    return this.executeDbOperation(
+      () => this.prisma.user.delete({ where: { id } }),
+      'Failed to delete user',
+      { userId: id },
+    );
   }
 
-  async deleteUser(userId: string) {
-    this.logger.log(`Deleting user with ID: ${userId}`);
+  private async validateUserData(userData: CreateUserDto) {
+    // Example validation: Check if email already exists
+    await this.validateEmailAvailability(userData.email);
 
-    try {
-      // Get user before deletion for logging purposes
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-      });
+    // Add more business rule validations as needed
+  }
 
-      if (!user) {
-        this.logger.warn(`User with ID ${userId} not found for deletion`);
-        throw new NotFoundException('User not found');
-      }
+  private async validateEmailAvailability(
+    email: string,
+    excludeUserId?: string,
+  ) {
+    const existingUser = await this.executeDbOperation(
+      () =>
+        this.prisma.user.findFirst({
+          where: {
+            email,
+            ...(excludeUserId ? { NOT: { id: excludeUserId } } : {}),
+          },
+        }),
+      'Failed to validate email availability',
+      { email, excludeUserId },
+    );
 
-      const deletedUser = await this.prisma.user.delete({
-        where: { id: userId },
-      });
-
-      this.logger.log(
-        `Successfully deleted user: ${deletedUser.name} (${userId})`,
-      );
-      return deletedUser;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      this.logger.error(
-        `Error deleting user ${userId}: ${error.message}`,
-        error.stack,
-      );
-      throw error;
-    }
+    this.validateBusinessRule(
+      !existingUser,
+      'Email already in use',
+      'EMAIL_ALREADY_EXISTS',
+      HttpStatus.CONFLICT,
+      { email },
+    );
   }
 }

@@ -9,9 +9,9 @@ import {
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { LoggerService } from '../logger/logger.service';
-import { S3HealthIndicator } from '../health-indicators/s3.health';
-import { RedisHealthIndicator } from 'src/health-indicators/redis.health';
-import { EmailerHealthIndicator } from 'src/health-indicators/emailer.health';
+import { S3HealthIndicator } from '../common/health-indicators/s3.health';
+import { RedisHealthIndicator } from 'src/common/health-indicators/redis.health';
+import { EmailerHealthIndicator } from 'src/common/health-indicators/emailer.health';
 
 @ApiTags('health')
 @Controller('health')

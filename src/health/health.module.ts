@@ -3,9 +3,9 @@ import { TerminusModule } from '@nestjs/terminus';
 import { HttpModule } from '@nestjs/axios';
 import { HealthController } from './health.controller';
 import { LoggerModule } from '../logger/logger.module';
-import { S3HealthIndicator } from '../health-indicators/s3.health';
-import { RedisHealthIndicator } from '../health-indicators/redis.health';
-import { EmailerHealthIndicator } from '../health-indicators/emailer.health';
+import { S3HealthIndicator } from '../common/health-indicators/s3.health';
+import { RedisHealthIndicator } from '../common/health-indicators/redis.health';
+import { EmailerHealthIndicator } from '../common/health-indicators/emailer.health';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({

@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  HttpStatus,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -9,15 +10,18 @@ import { LoggerService } from '../logger/logger.service';
 import * as bcrypt from 'bcryptjs';
 import { SignupDto, LoginDto } from './dto';
 import { ConfigService } from '@nestjs/config';
+import { BaseService } from '../common/services/base.service';
+import { BusinessException } from '../common/exceptions/business.exception';
 
 @Injectable()
-export class AuthService {
+export class AuthService extends BaseService {
   constructor(
-    private jwtService: JwtService,
-    private prisma: PrismaService,
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
     private configService: ConfigService,
-    private logger: LoggerService,
+    logger: LoggerService,
   ) {
+    super(logger);
     this.logger.setContext('AuthService');
   }
 
@@ -264,5 +268,204 @@ export class AuthService {
       this.logger.error(`Error during logout: ${error.message}`, error.stack);
       throw error;
     }
+  }
+
+  async validateUser(email: string, password: string) {
+    // Find user by email
+    const user = await this.executeDbOperation(
+      () =>
+        this.prisma.user.findUnique({
+          where: { email },
+          select: {
+            id: true,
+            email: true,
+            password: true,
+          },
+        }),
+      'Failed to validate user credentials',
+      { email },
+    );
+
+    // Check if user exists and is active
+    this.validateBusinessRule(
+      !!user,
+      'Invalid email or password',
+      'INVALID_CREDENTIALS',
+      HttpStatus.UNAUTHORIZED,
+    );
+
+    // At this point, TypeScript knows user is not null
+    const userData = user!;
+
+    // Check if password exists
+    this.validateBusinessRule(
+      !!userData.password,
+      'Password is not set for this account',
+      'PASSWORD_NOT_SET',
+      HttpStatus.UNAUTHORIZED,
+    );
+
+    // Compare passwords
+    const isPasswordValid = await this.executeExternalServiceCall(
+      () => bcrypt.compare(password, userData.password as string),
+      'bcrypt',
+      'comparing passwords',
+      { userId: userData.id },
+    );
+
+    this.validateBusinessRule(
+      isPasswordValid,
+      'Invalid email or password',
+      'INVALID_CREDENTIALS',
+      HttpStatus.UNAUTHORIZED,
+    );
+
+    // Remove sensitive data
+    const { password: _, ...result } = userData;
+    return result;
+  }
+
+  async login(user: any) {
+    // Generate JWT token
+    try {
+      const payload = {
+        sub: user.id,
+        email: user.email,
+        roles: user.roles,
+      };
+
+      return {
+        accessToken: this.jwtService.sign(payload),
+        user: {
+          id: user.id,
+          email: user.email,
+          roles: user.roles,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        'Failed to generate authentication token',
+        error.stack,
+        JSON.stringify({ userId: user.id }),
+      );
+
+      throw new BusinessException({
+        message: 'Authentication failed',
+        code: 'AUTH_ERROR',
+        status: HttpStatus.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+
+  async refreshToken(token: string) {
+    try {
+      // Verify the refresh token
+      const decoded = this.jwtService.verify(token, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      // Get user from database to ensure they still exist and are active
+      const user = await this.executeDbOperation(
+        () =>
+          this.prisma.user.findUnique({
+            where: { id: decoded.sub },
+            select: {
+              id: true,
+              email: true,
+            },
+          }),
+        'Failed to validate refresh token',
+        { userId: decoded.sub },
+      );
+
+      // Generate new tokens
+      return this.login(user);
+    } catch (error) {
+      if (error instanceof BusinessException) {
+        throw error;
+      }
+
+      this.logger.error(
+        'Invalid refresh token',
+        error.stack,
+        JSON.stringify({ token: token?.substring(0, 10) + '...' }),
+      );
+
+      throw new BusinessException({
+        message: 'Invalid or expired token',
+        code: 'INVALID_TOKEN',
+        status: HttpStatus.UNAUTHORIZED,
+      });
+    }
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    // Get user with password
+    const user = await this.executeDbOperation(
+      () =>
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, password: true },
+        }),
+      'Failed to retrieve user for password change',
+      { userId },
+    );
+
+    // Check if user exists
+    this.validateBusinessRule(
+      !!user,
+      'User not found',
+      'USER_NOT_FOUND',
+      HttpStatus.NOT_FOUND,
+    );
+
+    // At this point, TypeScript knows user is not null
+    const userData = user!;
+
+    // Check if password exists
+    this.validateBusinessRule(
+      !!userData.password,
+      'Password is not set for this account',
+      'PASSWORD_NOT_SET',
+      HttpStatus.BAD_REQUEST,
+    );
+
+    // Verify current password
+    const isPasswordValid = await this.executeExternalServiceCall(
+      () => bcrypt.compare(currentPassword, userData.password as string),
+      'bcrypt',
+      'verifying current password',
+      { userId },
+    );
+
+    this.validateBusinessRule(
+      isPasswordValid,
+      'Current password is incorrect',
+      'INVALID_CURRENT_PASSWORD',
+      HttpStatus.BAD_REQUEST,
+    );
+
+    // Hash the new password
+    const hashedPassword = await this.executeExternalServiceCall(
+      () => bcrypt.hash(newPassword, 10),
+      'bcrypt',
+      'hashing new password',
+      { userId },
+    );
+
+    // Update password in database
+    return this.executeDbOperation(
+      () =>
+        this.prisma.user.update({
+          where: { id: userId },
+          data: { password: hashedPassword },
+        }),
+      'Failed to update password',
+      { userId },
+    );
   }
 }
