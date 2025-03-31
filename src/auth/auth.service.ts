@@ -121,13 +121,13 @@ export class AuthService extends BaseService {
 
     try {
       const accessToken = await this.jwtService.signAsync(payload, {
-        secret: this.configService.get('JWT_ACCESS_SECRET'),
-        expiresIn: '15m',
+        secret: this.configService.get('jwt.access.secret'),
+        expiresIn: this.configService.get('jwt.access.expiresIn'),
       });
 
       const refreshToken = await this.jwtService.signAsync(payload, {
-        secret: this.configService.get('JWT_REFRESH_SECRET'),
-        expiresIn: '7d',
+        secret: this.configService.get('jwt.refresh.secret'),
+        expiresIn: this.configService.get('jwt.refresh.expiresIn'),
       });
 
       return { accessToken, refreshToken };
@@ -361,7 +361,7 @@ export class AuthService extends BaseService {
     try {
       // Verify the refresh token
       const decoded = this.jwtService.verify(token, {
-        secret: process.env.JWT_REFRESH_SECRET,
+        secret: this.configService.get('jwt.refresh.secret'),
       });
 
       // Get user from database to ensure they still exist and are active

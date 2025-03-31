@@ -22,7 +22,11 @@
     "check-format": "prettier --check .",
     "check-lint": "npx lint-staged",
     "test-all": "npm run check-format && npm run check-lint && npm run check-types && npm run build",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "security:audit": "pnpm audit",
+    "security:scan": "pnpm dlx snyk test || true",
+    "security:outdated": "pnpm outdated",
+    "security:check": "pnpm run security:audit && pnpm run security:outdated && pnpm run security:scan"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": "eslint --cache --fix"
@@ -30,9 +34,10 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.775.0",
     "@aws-sdk/s3-request-presigner": "^3.775.0",
-    "@nestjs-modules/mailer": "^1.6.1",
+    "@nestjs-modules/ioredis": "^2.0.2",
+    "@nestjs-modules/mailer": "^1.11.2",
     "@nestjs/axios": "^4.0.0",
-    "@nestjs/common": "^11.0.1",
+    "@nestjs/common": "^11.0.12",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.1",
     "@nestjs/jwt": "^11.0.0",
@@ -42,6 +47,7 @@
     "@nestjs/platform-socket.io": "^11.0.11",
     "@nestjs/swagger": "^11.0.4",
     "@nestjs/terminus": "^11.0.0",
+    "@nestjs/throttler": "^6.4.0",
     "@nestjs/websockets": "^11.0.11",
     "@types/handlebars": "^4.1.0",
     "aws-sdk": "^2.1692.0",
