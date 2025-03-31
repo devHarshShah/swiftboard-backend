@@ -16,6 +16,7 @@ import { TeamsService } from './teams.service';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from '../users/decorators/user.decorator';
 import { CreateTeamDto } from './dto/team.dto';
+import { Cache } from '../common/decorators/cache.decorator';
 
 @Controller('teams')
 @ApiTags('teams')
@@ -24,6 +25,14 @@ export class TeamsController {
   constructor(private readonly teamService: TeamsService) {}
 
   @Get()
+  @Cache({
+    ttl: 180,
+    key: (request) => {
+      const filterByRole = request.query.filterByRole;
+      const userId = request.user?.sub;
+      return filterByRole && userId ? `teams:filtered:${userId}` : 'teams:all';
+    },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get all teams or teams where the user is an admin/editor',
@@ -43,6 +52,7 @@ export class TeamsController {
   }
 
   @Get(':id')
+  @Cache({ ttl: 180, key: (request) => `team:${request.params.id}` })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get team by ID' })
   @ApiResponse({ status: 200, description: 'Returns the requested team' })
@@ -97,6 +107,7 @@ export class TeamsController {
   }
 
   @Get(':id/members')
+  @Cache({ ttl: 300, key: (request) => `team:${request.params.id}:members` })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all team members' })
   @ApiResponse({ status: 200, description: 'Returns team members' })
@@ -105,6 +116,7 @@ export class TeamsController {
   }
 
   @Get(':id/projects')
+  @Cache({ ttl: 180, key: (request) => `team:${request.params.id}:projects` })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all projects under a team' })
   @ApiResponse({ status: 200, description: 'Returns all team projects' })
@@ -113,6 +125,7 @@ export class TeamsController {
   }
 
   @Get(':id/tasks')
+  @Cache({ ttl: 60, key: (request) => `team:${request.params.id}:tasks` })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all tasks under a team' })
   @ApiResponse({ status: 200, description: 'Returns all team tasks' })
@@ -121,6 +134,7 @@ export class TeamsController {
   }
 
   @Get('user/teams')
+  @Cache({ ttl: 180, key: (request) => `user:${request.user.sub}:teams` })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all teams the user is part of' })
   @ApiResponse({

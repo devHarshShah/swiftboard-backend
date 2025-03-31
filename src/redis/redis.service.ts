@@ -190,4 +190,29 @@ export class RedisService {
       throw error;
     }
   }
+
+  /**
+   * Invalidates all API response caches
+   */
+  async invalidateAllResponseCaches(): Promise<void> {
+    try {
+      this.logger.debug('Invalidating all API response caches');
+
+      const pattern = 'api:cache:*';
+      const keys = await this.redisClient.keys(pattern);
+
+      if (keys.length > 0) {
+        await this.redisClient.del(...keys);
+        this.logger.log(`Invalidated ${keys.length} API response caches`);
+      } else {
+        this.logger.debug('No API response caches to invalidate');
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error invalidating API response caches: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
 }

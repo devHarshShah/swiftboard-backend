@@ -13,6 +13,7 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { AuthGuard } from '@nestjs/passport';
+import { Cache } from '../common/decorators/cache.decorator';
 
 @Controller('projects')
 @ApiTags('projects')
@@ -21,6 +22,7 @@ export class ProjectsController {
   constructor(private readonly projectService: ProjectsService) {}
 
   @Get()
+  @Cache({ ttl: 120 })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all projects' })
   @ApiResponse({ status: 200, description: 'Returns all projects' })
@@ -29,6 +31,7 @@ export class ProjectsController {
   }
 
   @Get(':id')
+  @Cache({ ttl: 120, key: (request) => `project:${request.params.id}` })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get project by ID' })
   @ApiResponse({ status: 200, description: 'Returns the requested project' })

@@ -25,6 +25,7 @@ import { ChatService } from './chat.service';
 import { AddMessageDto } from './dto/chat.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { GetUser } from 'src/users/decorators/user.decorator';
+import { Cache } from '../common/decorators/cache.decorator';
 
 @ApiTags('Chat')
 @Controller('chat')
@@ -41,6 +42,13 @@ export class ChatController {
   }
 
   @Get('messages')
+  @Cache({
+    ttl: 30,
+    key: (request) => {
+      const { userId1, userId2 } = request.query;
+      return `chat:messages:${userId1}:${userId2}`;
+    },
+  })
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get messages between two users' })
@@ -110,6 +118,7 @@ export class ChatController {
   }
 
   @Get('attachments/:id')
+  @Cache({ ttl: 3600, key: (request) => `attachment:${request.params.id}` })
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a presigned URL for an attachment' })

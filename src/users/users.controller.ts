@@ -15,6 +15,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
 import { GetUser } from './decorators/user.decorator';
 import { AuthGuard } from '@nestjs/passport';
+import { Cache } from '../common/decorators/cache.decorator';
 
 @Controller('users')
 @ApiTags('users')
@@ -31,6 +32,7 @@ export class UsersController {
   }
 
   @Get()
+  @Cache({ ttl: 300 })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all users' })
   @ApiResponse({ status: 200, description: 'Returns all users' })
@@ -39,6 +41,7 @@ export class UsersController {
   }
 
   @Get('me')
+  @Cache({ ttl: 60, key: (request) => `user:me:${request.user.sub}` })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get current user' })
   @ApiResponse({ status: 200, description: 'Returns the current user' })
@@ -48,6 +51,7 @@ export class UsersController {
   }
 
   @Get(':id')
+  @Cache({ ttl: 300, key: (request) => `user:${request.params.id}` })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiResponse({ status: 200, description: 'Returns the requested user' })

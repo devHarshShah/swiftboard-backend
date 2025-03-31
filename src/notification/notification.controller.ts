@@ -13,6 +13,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { CreateNotificationDto } from './dto/notification.dto';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { LoggerService } from '../logger/logger.service';
+import { Cache } from '../common/decorators/cache.decorator';
 
 @ApiTags('notifications')
 @Controller('notification')
@@ -27,6 +28,7 @@ export class NotificationController {
   }
 
   @Get()
+  @Cache({ ttl: 30, key: (request) => `notifications:${request.user.sub}` })
   @ApiOperation({ summary: 'Get all notifications for the authenticated user' })
   async getAllNotifications(@Req() req) {
     const userId = req.user.sub;
@@ -83,6 +85,10 @@ export class NotificationController {
   }
 
   @Get('unread-count')
+  @Cache({
+    ttl: 15,
+    key: (request) => `notifications:unread:${request.user.sub}`,
+  })
   @ApiOperation({ summary: 'Get count of unread notifications' })
   async getUnreadCount(@Req() req) {
     const userId = req.user.sub;

@@ -23,6 +23,7 @@ import {
 } from './dto/tasks.dto';
 import { GetUser } from 'src/users/decorators/user.decorator';
 import { TaskStatus } from '@prisma/client';
+import { Cache } from '../common/decorators/cache.decorator';
 
 @Controller('projects/:projectId/tasks')
 @ApiTags('tasks')
@@ -31,6 +32,10 @@ export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
   @Get()
+  @Cache({
+    ttl: 60,
+    key: (request) => `project:${request.params.projectId}:tasks`,
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all tasks for a project' })
   async getAllTasksForProject(@Param('projectId') projectId: string) {
@@ -38,6 +43,11 @@ export class TasksController {
   }
 
   @Get(':taskId')
+  @Cache({
+    ttl: 60,
+    key: (request) =>
+      `project:${request.params.projectId}:task:${request.params.taskId}`,
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get task by ID for a project' })
   async getTaskByIdForProject(
@@ -163,6 +173,11 @@ export class TasksController {
   }
 
   @Get(':taskId/time-stats')
+  @Cache({
+    ttl: 180,
+    key: (request) =>
+      `project:${request.params.projectId}:task:${request.params.taskId}:time-stats`,
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get time statistics for a task' })
   async getTaskTimeStats(
@@ -173,6 +188,10 @@ export class TasksController {
   }
 
   @Get('time-stats')
+  @Cache({
+    ttl: 180,
+    key: (request) => `project:${request.params.projectId}:time-stats`,
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get time statistics for the entire project' })
   async getProjectTimeStats(@Param('projectId') projectId: string) {

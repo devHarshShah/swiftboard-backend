@@ -17,6 +17,7 @@ import { RedisModule } from './redis/redis.module';
 import { LoggerModule } from './logger/logger.module';
 import { ErrorModule } from './error/error.module';
 import { HealthModule } from './health/health.module';
+import { CacheModule } from './cache/cache.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { HealthModule } from './health/health.module';
     RedisModule,
     LoggerModule,
     HealthModule,
+    CacheModule,
   ],
   controllers: [AppController],
   providers: [AppService],
