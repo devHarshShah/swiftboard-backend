@@ -35,7 +35,7 @@ services:
       - key: REDIS_HOST
         value: $REDIS_SWIFTBOARD_HOST
       - key: REDIS_PORT
-        value: $REDIS_SWIFTBOARD_PORT
+        value: 6379
       - key: AWS_REGION
         value: ap-south-1
       - key: AWS_ACCESS_KEY_ID
