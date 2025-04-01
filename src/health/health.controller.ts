@@ -12,6 +12,8 @@ import { LoggerService } from '../logger/logger.service';
 import { S3HealthIndicator } from '../common/health-indicators/s3.health';
 import { RedisHealthIndicator } from 'src/common/health-indicators/redis.health';
 import { EmailerHealthIndicator } from 'src/common/health-indicators/emailer.health';
+import { RedisService } from '../redis/redis.service';
+import { NoCache } from '../common/decorators/cache.decorator';
 
 @ApiTags('health')
 @Controller('health')
@@ -25,15 +27,25 @@ export class HealthController {
     private redis: RedisHealthIndicator,
     private emailer: EmailerHealthIndicator,
     private logger: LoggerService,
+    private redisService: RedisService,
   ) {
     this.logger.setContext('HealthController');
   }
 
   @Get()
+  @NoCache() // Don't cache health checks
   @ApiOperation({ summary: 'Check general system health' })
   @HealthCheck()
-  check() {
+  async check() {
     this.logger.log('Performing health check');
+
+    // Clear health check caches to ensure fresh results
+    try {
+      await this.redisService.invalidateCache('health:system');
+    } catch (error) {
+      this.logger.warn(`Failed to clear health cache: ${error.message}`);
+    }
+
     return this.health.check([
       () => this.http.pingCheck('nestjs-docs', 'https://docs.nestjs.com'),
       () =>
@@ -47,13 +59,24 @@ export class HealthController {
   }
 
   @Get('detailed')
+  @NoCache() // Don't cache health checks
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({
     summary: 'Get detailed health information (authenticated users only)',
   })
   @HealthCheck()
-  detailedCheck() {
+  async detailedCheck() {
     this.logger.log('Performing detailed health check');
+
+    // Clear health check caches to ensure fresh results
+    try {
+      await this.redisService.invalidateCache('health:detailed');
+    } catch (error) {
+      this.logger.warn(
+        `Failed to clear detailed health cache: ${error.message}`,
+      );
+    }
+
     return this.health.check([
       () => this.http.pingCheck('nestjs-docs', 'https://docs.nestjs.com'),
       () =>

@@ -16,22 +16,29 @@ import { TeamsService } from './teams.service';
 import { AuthGuard } from '@nestjs/passport';
 import { GetUser } from '../users/decorators/user.decorator';
 import { CreateTeamDto } from './dto/team.dto';
-import { Cache } from '../common/decorators/cache.decorator';
+import { LongCache, NoCache } from '../common/decorators/cache.decorator';
+import { RedisService } from '../redis/redis.service';
 
 @Controller('teams')
 @ApiTags('teams')
 @UseGuards(AuthGuard('jwt'))
 export class TeamsController {
-  constructor(private readonly teamService: TeamsService) {}
+  constructor(
+    private readonly teamService: TeamsService,
+    private readonly redisService: RedisService,
+  ) {}
 
   @Get()
-  @Cache({
+  @LongCache({
     ttl: 180,
     key: (request) => {
       const filterByRole = request.query.filterByRole;
       const userId = request.user?.sub;
-      return filterByRole && userId ? `teams:filtered:${userId}` : 'teams:all';
+      return filterByRole && userId
+        ? `teams:filtered:${userId}`
+        : 'teams:all:user:${userId}';
     },
+    tags: ['teams'],
   })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -52,7 +59,11 @@ export class TeamsController {
   }
 
   @Get(':id')
-  @Cache({ ttl: 180, key: (request) => `team:${request.params.id}` })
+  @LongCache({
+    ttl: 180,
+    key: (request) => `team:${request.params.id}:user:${request.user?.sub}`,
+    tags: ['team'],
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get team by ID' })
   @ApiResponse({ status: 200, description: 'Returns the requested team' })
@@ -61,6 +72,7 @@ export class TeamsController {
   }
 
   @Post()
+  @NoCache()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new team' })
   @ApiResponse({ status: 201, description: 'Team successfully created' })
@@ -68,34 +80,70 @@ export class TeamsController {
     @GetUser() userId: string,
     @Body() createTeamDto: CreateTeamDto,
   ) {
-    return this.teamService.createTeam(userId, createTeamDto);
+    const result = await this.teamService.createTeam(userId, createTeamDto);
+
+    // Invalidate relevant caches
+    await this.invalidateTeamListCaches();
+    await this.invalidateUserTeamsCaches(userId);
+
+    return result;
   }
 
   @Put(':id')
+  @NoCache()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update team details' })
   @ApiResponse({ status: 200, description: 'Returns the updated team' })
   async updateTeam(@Param('id') teamId: string, @Body() updateTeamDto) {
-    return this.teamService.updateTeam(teamId, updateTeamDto);
+    const result = await this.teamService.updateTeam(teamId, updateTeamDto);
+
+    // Invalidate team cache
+    await this.invalidateTeamCaches(teamId);
+
+    return result;
   }
 
   @Delete(':id')
+  @NoCache()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a team' })
   @ApiResponse({ status: 200, description: 'Team successfully deleted' })
   async deleteTeam(@Param('id') teamId: string) {
-    return this.teamService.deleteTeam(teamId);
+    // Get team members before deleting to invalidate their caches
+    const members = await this.teamService.getTeamMembers(teamId);
+    const result = await this.teamService.deleteTeam(teamId);
+
+    // Invalidate team caches
+    await this.invalidateTeamCaches(teamId);
+    await this.invalidateTeamListCaches();
+
+    // Invalidate cached user teams for all members
+    for (const member of members) {
+      await this.invalidateUserTeamsCaches(member.userId);
+    }
+
+    return result;
   }
 
   @Post(':id/members')
+  @NoCache()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Add a member to the team' })
   @ApiResponse({ status: 200, description: 'Member added to the team' })
   async addMemberToTeam(@Param('id') teamId: string, @Body() addMemberDto) {
-    return this.teamService.addMemberToTeam(teamId, addMemberDto);
+    const result = await this.teamService.addMemberToTeam(teamId, addMemberDto);
+
+    // Invalidate team members cache
+    await this.invalidateTeamMembersCaches(teamId);
+
+    // Invalidate user's teams cache
+    await this.invalidateUserTeamsCaches(addMemberDto.userId);
+
+    return result;
   }
 
   @Delete(':id/members/:memberId')
+  @NoCache()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove a member from the team' })
   @ApiResponse({ status: 200, description: 'Member removed from the team' })
@@ -103,11 +151,27 @@ export class TeamsController {
     @Param('id') teamId: string,
     @Param('memberId') memberId: string,
   ) {
-    return this.teamService.removeMemberFromTeam(teamId, memberId);
+    const result = await this.teamService.removeMemberFromTeam(
+      teamId,
+      memberId,
+    );
+
+    // Invalidate team members cache
+    await this.invalidateTeamMembersCaches(teamId);
+
+    // Invalidate user's teams cache
+    await this.invalidateUserTeamsCaches(memberId);
+
+    return result;
   }
 
   @Get(':id/members')
-  @Cache({ ttl: 300, key: (request) => `team:${request.params.id}:members` })
+  @LongCache({
+    ttl: 300,
+    key: (request) =>
+      `team:${request.params.id}:members:user:${request.user?.sub}`,
+    tags: ['team-members'],
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all team members' })
   @ApiResponse({ status: 200, description: 'Returns team members' })
@@ -116,7 +180,12 @@ export class TeamsController {
   }
 
   @Get(':id/projects')
-  @Cache({ ttl: 180, key: (request) => `team:${request.params.id}:projects` })
+  @LongCache({
+    ttl: 180,
+    key: (request) =>
+      `team:${request.params.id}:projects:user:${request.user?.sub}`,
+    tags: ['team-projects'],
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all projects under a team' })
   @ApiResponse({ status: 200, description: 'Returns all team projects' })
@@ -125,7 +194,12 @@ export class TeamsController {
   }
 
   @Get(':id/tasks')
-  @Cache({ ttl: 60, key: (request) => `team:${request.params.id}:tasks` })
+  @LongCache({
+    ttl: 60,
+    key: (request) =>
+      `team:${request.params.id}:tasks:user:${request.user?.sub}`,
+    tags: ['team-tasks'],
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all tasks under a team' })
   @ApiResponse({ status: 200, description: 'Returns all team tasks' })
@@ -134,7 +208,11 @@ export class TeamsController {
   }
 
   @Get('user/teams')
-  @Cache({ ttl: 180, key: (request) => `user:${request.user.sub}:teams` })
+  @LongCache({
+    ttl: 180,
+    key: (request) => `user:${request.user.sub}:teams`,
+    tags: ['user-teams'],
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all teams the user is part of' })
   @ApiResponse({
@@ -143,5 +221,23 @@ export class TeamsController {
   })
   async getUserTeams(@GetUser() userId: string) {
     return this.teamService.getUserTeams(userId);
+  }
+
+  // Helper methods for cache invalidation
+  private async invalidateTeamCaches(teamId: string): Promise<void> {
+    await this.redisService.invalidateCachePattern(`*team:${teamId}*`);
+  }
+
+  private async invalidateTeamMembersCaches(teamId: string): Promise<void> {
+    await this.redisService.invalidateCachePattern(`*team:${teamId}:members*`);
+  }
+
+  private async invalidateTeamListCaches(): Promise<void> {
+    await this.redisService.invalidateCachePattern(`*teams:all*`);
+    await this.redisService.invalidateCachePattern(`*teams:filtered*`);
+  }
+
+  private async invalidateUserTeamsCaches(userId: string): Promise<void> {
+    await this.redisService.invalidateCachePattern(`*user:${userId}:teams*`);
   }
 }

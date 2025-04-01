@@ -16,9 +16,11 @@ import { LoginDto, SignupDto } from './dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guards';
 import { Request, Response } from 'express';
+import { NoCache } from '../common/decorators/cache.decorator';
 
 @Controller('auth')
 @ApiTags('auth')
+@NoCache() // Apply NoCache to all auth routes
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

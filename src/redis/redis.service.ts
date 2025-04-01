@@ -215,4 +215,168 @@ export class RedisService {
       throw error;
     }
   }
+
+  /**
+   * Cache data with entity type prefixing for better organization
+   */
+  async cacheEntityData(
+    entityType: string,
+    entityId: string,
+    data: any,
+    ttlSeconds: number = 3600, // Default 1 hour TTL
+  ): Promise<void> {
+    try {
+      const key = this.generateEntityCacheKey(entityType, entityId);
+      this.logger.debug(`Caching entity data with key: ${key}`);
+
+      // Store the data
+      await this.cacheData(key, data, ttlSeconds);
+
+      // Also register this key with the entity type for easier invalidation
+      const indexKey = `entity-index:${entityType}`;
+      await this.redisClient.sadd(indexKey, key);
+
+      // Set expiration on the index to prevent memory leaks
+      await this.redisClient.expire(indexKey, Math.max(ttlSeconds, 86400)); // At least 1 day
+
+      this.logger.log(
+        `Successfully cached entity data for ${entityType}:${entityId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error caching entity data for ${entityType}:${entityId}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Get cached entity data
+   */
+  async getCachedEntityData<T>(
+    entityType: string,
+    entityId: string,
+  ): Promise<T | null> {
+    const key = this.generateEntityCacheKey(entityType, entityId);
+    return this.getCachedData<T>(key);
+  }
+
+  /**
+   * Invalidate cache for a specific entity
+   */
+  async invalidateEntityCache(
+    entityType: string,
+    entityId: string,
+  ): Promise<void> {
+    const key = this.generateEntityCacheKey(entityType, entityId);
+    await this.invalidateCache(key);
+  }
+
+  /**
+   * Invalidate all caches for a specific entity type
+   */
+  async invalidateEntityTypeCache(entityType: string): Promise<void> {
+    try {
+      this.logger.debug(
+        `Invalidating all caches for entity type: ${entityType}`,
+      );
+
+      // Get all keys from the entity index
+      const indexKey = `entity-index:${entityType}`;
+      const keys = await this.redisClient.smembers(indexKey);
+
+      if (keys.length > 0) {
+        // Delete all the cached data
+        await this.redisClient.del(...keys);
+        // Clear the index
+        await this.redisClient.del(indexKey);
+        this.logger.log(
+          `Invalidated ${keys.length} cache entries for entity type ${entityType}`,
+        );
+      } else {
+        // Fallback to pattern matching if index is empty
+        const pattern = `entity:${entityType}:*`;
+        await this.invalidateCachePattern(pattern);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error invalidating entity type cache for ${entityType}: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Invalidate related entity caches when an action occurs
+   * For example, when a workflow is created, we may need to invalidate user workflows list
+   */
+  async invalidateRelatedCaches(
+    primaryEntity: { type: string; id: string },
+    relatedEntities: Array<{ type: string; id?: string }>,
+  ): Promise<void> {
+    // Invalidate the primary entity
+    await this.invalidateEntityCache(primaryEntity.type, primaryEntity.id);
+
+    // Invalidate related entities
+    for (const entity of relatedEntities) {
+      if (entity.id) {
+        await this.invalidateEntityCache(entity.type, entity.id);
+      } else {
+        await this.invalidateEntityTypeCache(entity.type);
+      }
+    }
+  }
+
+  /**
+   * Generate standard cache key for entities
+   */
+  private generateEntityCacheKey(entityType: string, entityId: string): string {
+    return `entity:${entityType}:${entityId}`;
+  }
+
+  /**
+   * Check if Redis is available
+   */
+  async ping(): Promise<boolean> {
+    try {
+      const result = await this.redisClient.ping();
+      return result === 'PONG';
+    } catch (error) {
+      this.logger.error(`Redis ping failed: ${error.message}`, error.stack);
+      return false;
+    }
+  }
+
+  /**
+   * Safer invalidate pattern with error handling
+   * If a pattern fails, it will still delete individual keys
+   */
+  async safeInvalidateCachePattern(pattern: string): Promise<void> {
+    try {
+      const keys = await this.redisClient.keys(pattern);
+      this.logger.debug(
+        `Found ${keys.length} keys matching pattern: ${pattern}`,
+      );
+
+      if (keys.length > 0) {
+        // Delete each key individually to avoid Redis errors with large batches
+        for (const key of keys) {
+          try {
+            await this.redisClient.del(key);
+          } catch (error) {
+            this.logger.error(`Error deleting key ${key}: ${error.message}`);
+          }
+        }
+        this.logger.log(`Invalidated keys matching pattern: ${pattern}`);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Error finding keys with pattern ${pattern}: ${error.message}`,
+        error.stack,
+      );
+      // Don't rethrow to avoid breaking the calling code
+    }
+  }
 }
