@@ -33,9 +33,9 @@ services:
       - key: EMAIL_PASSWORD
         sync: false # This will prompt you to enter the value securely during deployment
       - key: REDIS_HOST
-        value: redis-swiftboard.internal
+        value: $REDIS_SWIFTBOARD_HOST
       - key: REDIS_PORT
-        value: 6379
+        value: $REDIS_SWIFTBOARD_PORT
       - key: AWS_REGION
         value: ap-south-1
       - key: AWS_ACCESS_KEY_ID
