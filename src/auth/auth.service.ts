@@ -361,7 +361,7 @@ export class AuthService extends BaseService {
     try {
       // Verify the refresh token
       const decoded = this.jwtService.verify(token, {
-        secret: this.configService.get('jwt.refresh.secret'),
+        secret: this.configService.get('JWT_REFRESH_SECRET'),
       });
 
       // Get user from database to ensure they still exist and are active
