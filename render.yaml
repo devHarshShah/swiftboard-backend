@@ -32,16 +32,12 @@ services:
         value: harshdipashah@gmail.com
       - key: EMAIL_PASSWORD
         sync: false
+      - key: REDIS_URL
+        value: redis://red-cvlvba3e5dus73add510:6379
       - key: REDIS_HOST
-        fromService:
-          name: redis-swiftboard
-          type: redis
-          property: host
+        value: red-cvlvba3e5dus73add510
       - key: REDIS_PORT
-        fromService:
-          name: redis-swiftboard
-          type: redis
-          property: port
+        value: 6379
       - key: AWS_REGION
         value: ap-south-1
       - key: AWS_ACCESS_KEY_ID
@@ -54,13 +50,6 @@ services:
         fromDatabase:
           name: swiftboard-db
           property: connectionString
-
-  - type: redis
-    name: redis-swiftboard
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: Allow all traffic
-    plan: free
 
 databases:
   - name: swiftboard-db
