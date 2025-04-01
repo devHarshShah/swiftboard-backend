@@ -3,8 +3,8 @@ services:
     name: swiftboard-api
     env: node
     plan: free
-    buildCommand: npm ci && npm run build
-    startCommand: npm run start:prod
+    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
+    startCommand: pnpm run start:prod
     envVars:
       - key: NODE_ENV
         value: production
@@ -21,7 +21,7 @@ services:
       - key: GOOGLE_CALLBACK_URL
         value: https://swiftboard-api.onrender.com/auth/google/callback # Updated for production
       - key: FRONTEND_URL
-        value: https://swiftboard.onrender.com # Update this with your frontend URL
+        value: https://swiftboard.devharsh.in # Update this with your frontend URL
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT
