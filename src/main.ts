@@ -20,14 +20,6 @@ async function bootstrap() {
   logger.setContext('Bootstrap');
 
   try {
-    // Create the application
-    const app = await NestFactory.create(AppModule, {
-      bufferLogs: true, // Buffer logs until custom logger is set up
-    });
-
-    // Use custom logger
-    app.useLogger(logger);
-
     // Get config service
     const configService = app.get(ConfigService);
 
@@ -76,5 +68,13 @@ async function bootstrap() {
     process.exit(1);
   }
 }
+
+// For serverless environments
+export const handler = async (req, res) => {
+  const app = await NestFactory.create(AppModule);
+  await app.init();
+  const expressInstance = app.getHttpAdapter().getInstance();
+  return expressInstance(req, res);
+};
 
 bootstrap();
