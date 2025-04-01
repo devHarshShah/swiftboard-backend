@@ -11,17 +11,17 @@ services:
       - key: PORT
         value: 8000
       - key: JWT_ACCESS_SECRET
-        sync: false # This will prompt you to enter the value securely during deployment
+        sync: false
       - key: JWT_REFRESH_SECRET
-        sync: false # This will prompt you to enter the value securely during deployment
+        sync: false
       - key: GOOGLE_CLIENT_ID
         value: 372086918113-fmdchcpblii6l22k4g2unjkma9g0l28r.apps.googleusercontent.com
       - key: GOOGLE_CLIENT_SECRET
-        sync: false # This will prompt you to enter the value securely during deployment
+        sync: false
       - key: GOOGLE_CALLBACK_URL
-        value: https://swiftboard-api.onrender.com/auth/google/callback # Updated for production
+        value: https://swiftboard-api.onrender.com/auth/google/callback
       - key: FRONTEND_URL
-        value: https://swiftboard.devharsh.in # Update this with your frontend URL
+        value: https://swiftboard.devharsh.in
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT
@@ -31,17 +31,23 @@ services:
       - key: EMAIL_USERNAME
         value: harshdipashah@gmail.com
       - key: EMAIL_PASSWORD
-        sync: false # This will prompt you to enter the value securely during deployment
+        sync: false
       - key: REDIS_HOST
-        value: $REDIS_SWIFTBOARD_HOST
+        fromService:
+          name: redis-swiftboard
+          type: redis
+          property: host
       - key: REDIS_PORT
-        value: 6379
+        fromService:
+          name: redis-swiftboard
+          type: redis
+          property: port
       - key: AWS_REGION
         value: ap-south-1
       - key: AWS_ACCESS_KEY_ID
-        sync: false # This will prompt you to enter the value securely during deployment
+        sync: false
       - key: AWS_SECRET_ACCESS_KEY
-        sync: false # This will prompt you to enter the value securely during deployment
+        sync: false
       - key: S3_BUCKET_NAME
         value: swiftboard-app
       - key: DATABASE_URL
@@ -51,7 +57,7 @@ services:
 
   - type: redis
     name: redis-swiftboard
-    ipAllowList: # Only allow internal connections
+    ipAllowList:
       - source: 0.0.0.0/0
         description: Allow all traffic
     plan: free
@@ -61,6 +67,6 @@ databases:
     databaseName: swiftboard
     user: swiftboard_user
     plan: free
-    ipAllowList: # Only allow internal connections
+    ipAllowList:
       - source: 0.0.0.0/0
         description: Allow all traffic

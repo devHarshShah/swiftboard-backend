@@ -10,3 +10,4 @@ README.md
 .prettierrc
 eslint.config.mjs
 pnpm-lock.yaml
+render.yaml
