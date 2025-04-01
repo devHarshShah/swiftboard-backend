@@ -9,6 +9,6 @@ export default registerAs('jwt', () => ({
     secret: process.env.JWT_REFRESH_SECRET || 'super-strong-refresh-secret',
     expiresIn: process.env.JWT_REFRESH_EXPIRY || '7d',
   },
-  audience: process.env.JWT_AUDIENCE || 'https://api.swiftboard.com',
+  audience: process.env.JWT_AUDIENCE || 'https://swiftboard-api.onrender.com',
   issuer: process.env.JWT_ISSUER || 'swiftboard',
 }));

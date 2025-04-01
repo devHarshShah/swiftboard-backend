@@ -114,7 +114,7 @@ export class TeamsService {
 
   private getInvitationLink(token: string): string {
     const baseUrl = this.configService.get<string>(
-      'APP_URL',
+      'FRONTEND_URL',
       'http://localhost:3000',
     );
     this.logger.debug(`Creating invitation link with base URL: ${baseUrl}`);
