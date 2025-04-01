@@ -59,7 +59,7 @@ services:
 databases:
   - name: swiftboard-db
     databaseName: swiftboard
-    user: postgres
+    user: swiftboard_user
     plan: free
     ipAllowList: # Only allow internal connections
       - source: 0.0.0.0/0
