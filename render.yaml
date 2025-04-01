@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: swiftboard-api
+    env: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8000
+      - key: JWT_ACCESS_SECRET
+        sync: false # This will prompt you to enter the value securely during deployment
+      - key: JWT_REFRESH_SECRET
+        sync: false # This will prompt you to enter the value securely during deployment
+      - key: GOOGLE_CLIENT_ID
+        value: 372086918113-fmdchcpblii6l22k4g2unjkma9g0l28r.apps.googleusercontent.com
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false # This will prompt you to enter the value securely during deployment
+      - key: GOOGLE_CALLBACK_URL
+        value: https://swiftboard-api.onrender.com/auth/google/callback # Updated for production
+      - key: FRONTEND_URL
+        value: https://swiftboard.onrender.com # Update this with your frontend URL
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_SECURE
+        value: false
+      - key: EMAIL_USERNAME
+        value: harshdipashah@gmail.com
+      - key: EMAIL_PASSWORD
+        sync: false # This will prompt you to enter the value securely during deployment
+      - key: REDIS_HOST
+        value: redis # This will reference the Redis service
+      - key: REDIS_PORT
+        value: 6379
+      - key: AWS_REGION
+        value: ap-south-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false # This will prompt you to enter the value securely during deployment
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false # This will prompt you to enter the value securely during deployment
+      - key: S3_BUCKET_NAME
+        value: swiftboard-app
+      - key: DATABASE_URL
+        fromDatabase:
+          name: swiftboard-db
+          property: connectionString
+
+  - type: redis
+    name: redis
+    ipAllowList: # Only allow internal connections
+      - source: 0.0.0.0/0
+        description: Allow all traffic
+    plan: free
+
+databases:
+  - name: swiftboard-db
+    databaseName: swiftboard
+    user: postgres
+    plan: free
+    ipAllowList: # Only allow internal connections
+      - source: 0.0.0.0/0
+        description: Allow all traffic
