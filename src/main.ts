@@ -57,7 +57,7 @@ async function bootstrap() {
     }
 
     // Get port from environment or use default
-    const port = configService.get('PORT', 3000);
+    const port = configService.get('PORT', 8000);
 
     // Start the application
     await app.listen(port);
