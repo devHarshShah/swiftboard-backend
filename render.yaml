@@ -3,7 +3,7 @@ services:
     name: swiftboard-api
     env: node
     plan: free
-    buildCommand: npm install -g pnpm && pnpm install && pnpm run build
+    buildCommand: npm install -g pnpm && pnpm install && npx prisma generate && pnpm run build
     startCommand: pnpm run start:prod
     envVars:
       - key: NODE_ENV
