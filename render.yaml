@@ -3,7 +3,7 @@ services:
     name: swiftboard-api
     env: node
     plan: free
-    buildCommand: npm install -g pnpm && pnpm install && npx prisma generate && pnpm run build
+    buildCommand: npm install -g pnpm && pnpm install && npx prisma db push --accept-data-loss && npx prisma generate && pnpm run build
     startCommand: pnpm run start:prod
     envVars:
       - key: NODE_ENV
@@ -33,7 +33,7 @@ services:
       - key: EMAIL_PASSWORD
         sync: false # This will prompt you to enter the value securely during deployment
       - key: REDIS_HOST
-        value: redis # This will reference the Redis service
+        value: redis-swiftboard.internal
       - key: REDIS_PORT
         value: 6379
       - key: AWS_REGION
@@ -50,7 +50,7 @@ services:
           property: connectionString
 
   - type: redis
-    name: redis
+    name: redis-swiftboard
     ipAllowList: # Only allow internal connections
       - source: 0.0.0.0/0
         description: Allow all traffic
