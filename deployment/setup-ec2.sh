@@ -8,7 +8,7 @@ sudo apt-get upgrade -y
 
 # Install Node.js, Docker, Docker Compose, and other utilities
 echo "Installing Node.js, Docker, Docker Compose, and other utilities..."
-sudo apt-get install -y curl wget git nginx certbot python3-certbot-nginx
+sudo apt-get install -y curl wget git nginx certbot python3-certbot-nginx dnsutils
 
 # Install Docker
 echo "Installing Docker..."
@@ -32,5 +32,10 @@ sudo systemctl stop nginx
 sudo systemctl start nginx
 sudo systemctl enable nginx
 
+# Create application directory
+echo "Creating application directory..."
+mkdir -p ~/swiftboard-backend
+
 echo "Setup complete!"
 echo "Please log out and log back in for the Docker group changes to take effect."
+echo "Make sure to configure the subdomain 'swiftboard-api' with A record pointing to $(curl -s http://checkip.amazonaws.com)"

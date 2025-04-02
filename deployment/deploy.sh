@@ -1,6 +1,23 @@
 #!/bin/bash
 set -e
 
+# Check if DNS is properly configured
+echo "Checking DNS configuration..."
+DOMAIN="swiftboard-api.devharsh.in"
+SERVER_IP="13.201.186.211"
+RESOLVED_IP=$(dig +short $DOMAIN)
+
+if [ "$RESOLVED_IP" != "$SERVER_IP" ]; then
+  echo "Warning: The domain $DOMAIN is not pointing to this server ($SERVER_IP)"
+  echo "Current IP: $RESOLVED_IP"
+  echo "Please ensure your DNS A record is properly configured and has propagated"
+  read -p "Continue anyway? (y/n) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 1
+  fi
+fi
+
 # Create production environment file
 echo "Setting up environment file..."
 cp .env.prod.example .env.prod
