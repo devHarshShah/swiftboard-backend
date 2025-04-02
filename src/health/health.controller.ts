@@ -9,11 +9,13 @@ import {
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { LoggerService } from '../logger/logger.service';
-import { S3HealthIndicator } from '../common/health-indicators/s3.health';
-import { RedisHealthIndicator } from 'src/common/health-indicators/redis.health';
-import { EmailerHealthIndicator } from 'src/common/health-indicators/emailer.health';
+import { S3HealthIndicator } from './indicators/s3.health';
+import { RedisHealthIndicator } from './indicators/redis.health';
+import { EmailerHealthIndicator } from './indicators/emailer.health';
 import { RedisService } from '../redis/redis.service';
 import { NoCache } from '../common/decorators/cache.decorator';
+import { PrismaHealthIndicator } from './indicators/prisma.health';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('health')
 @Controller('health')
@@ -28,6 +30,7 @@ export class HealthController {
     private emailer: EmailerHealthIndicator,
     private logger: LoggerService,
     private redisService: RedisService,
+    private prisma: PrismaHealthIndicator,
   ) {
     this.logger.setContext('HealthController');
   }
@@ -36,6 +39,7 @@ export class HealthController {
   @NoCache() // Don't cache health checks
   @ApiOperation({ summary: 'Check general system health' })
   @HealthCheck()
+  @Public()
   async check() {
     this.logger.log('Performing health check');
 
@@ -55,6 +59,7 @@ export class HealthController {
       () => this.s3.isHealthy('s3_storage'),
       () => this.redis.isHealthy('redis_cache'),
       () => this.emailer.isHealthy('email_service'),
+      () => this.prisma.isHealthy('database'),
     ]);
   }
 

@@ -3,6 +3,7 @@ import { SetMetadata } from '@nestjs/common';
 export const CACHE_KEY_METADATA = 'cache_key_metadata';
 export const CACHE_TTL_METADATA = 'cache_ttl_metadata';
 export const CACHE_TAGS_METADATA = 'cache_tags_metadata';
+export const NO_CACHE_KEY = 'no-cache';
 
 export interface CacheOptions {
   ttl?: number; // Time to live in seconds
@@ -26,9 +27,7 @@ export const Cache = (options: CacheOptions = {}) => {
 };
 
 // Helper decorators for common use cases
-export const NoCache = () => {
-  return SetMetadata(CACHE_TTL_METADATA, 0);
-};
+export const NoCache = () => SetMetadata(NO_CACHE_KEY, true);
 
 // Short-lived cache for frequently changing data
 export const ShortCache = (

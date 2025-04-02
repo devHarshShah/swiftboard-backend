@@ -44,6 +44,11 @@ async function bootstrap() {
     // Enable compression
     app.use(compression());
 
+    // Simple health check endpoint for Docker
+    app.getHttpAdapter().get('/health', (req, res) => {
+      res.status(200).send('OK');
+    });
+
     // Setup Swagger docs
     if (process.env.NODE_ENV !== 'production') {
       const config = new DocumentBuilder()

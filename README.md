@@ -71,6 +71,78 @@ $ mau deploy
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
+## Docker Deployment
+
+### Prerequisites
+
+- Docker and Docker Compose installed on your system
+- Basic knowledge of Docker and containerization
+
+### Quick Start
+
+1. Clone the repository
+2. Create a `.env` file based on `.env.example`
+3. Run the application using Docker Compose:
+
+```bash
+# Start all services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop all services
+docker-compose down
+```
+
+### Environment Configuration
+
+Copy the `.env.example` file to create a new `.env` file:
+
+```bash
+cp .env.example .env
+```
+
+Then edit the file to add your specific configuration values.
+
+### Services
+
+The Docker Compose setup includes:
+
+- **Backend**: The NestJS application
+- **PostgreSQL**: Database service
+- **Redis**: Cache and WebSocket support
+
+### Data Persistence
+
+All data is persisted in Docker volumes:
+
+- `postgres_data`: PostgreSQL database files
+- `redis_data`: Redis data files
+
+### Security Considerations
+
+- All containers run with minimal privileges
+- Sensitive data is passed via environment variables
+- Services communicate within a private Docker network
+- Regular security updates are crucial
+
+### Container Management
+
+```bash
+# Rebuild the backend container
+docker-compose build backend
+
+# View container logs
+docker-compose logs -f [service-name]
+
+# Execute commands in a container
+docker-compose exec backend sh
+
+# Check container health
+docker-compose ps
+```
+
 ## Resources
 
 Check out a few resources that may come in handy when working with NestJS:

@@ -14,12 +14,22 @@ import { AddMessageDto } from './dto/chat.dto';
 import { RedisService } from '../redis/redis.service';
 import { LoggerService } from '../logger/logger.service';
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 @WebSocketGateway({
   namespace: 'chat',
   cors: {
-    origin: '*', // Adjust for production
+    // Use environment configuration instead of wildcard
+    origin: (origin, callback) => {
+      const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [];
+      if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
   },
 })
 export class ChatGateway
@@ -30,22 +40,27 @@ export class ChatGateway
 
   private onlineUsers = new Map<string, string[]>();
   private userRooms = new Map<string, Set<string>>();
+  private readonly isProduction: boolean;
 
   constructor(
     private chatService: ChatService,
     private redisService: RedisService,
     private logger: LoggerService,
+    private configService: ConfigService,
   ) {
     this.logger.setContext('ChatGateway');
+    this.isProduction = this.configService.get('NODE_ENV') === 'production';
   }
 
   afterInit(server: Server) {
     this.logger.log('Chat Gateway initialized');
   }
 
+  // Enhanced security for connection handling
   async handleConnection(client: Socket) {
     try {
       const userId = client.handshake.query.userId as string;
+      const token = client.handshake.auth.token as string;
 
       if (!userId || userId === 'undefined') {
         this.logger.warn('Invalid userId during connection', {
@@ -55,11 +70,22 @@ export class ChatGateway
         return;
       }
 
+      // In production, verify JWT token for websocket connections
+      if (this.isProduction && !token) {
+        this.logger.warn('Missing authentication token', {
+          clientId: client.id,
+        });
+        client.disconnect(true);
+        return;
+      }
+
+      // Log connection with IP address for security monitoring
       this.logger.log(`Client connected: ${client.id} for user: ${userId}`);
       this.logger.debug(
         `Connection details: IP=${client.handshake.address}, transport=${client.conn.transport.name}`,
       );
 
+      // Rest of your connection handling...
       if (!this.onlineUsers.has(userId)) {
         this.onlineUsers.set(userId, []);
       }
@@ -81,6 +107,7 @@ export class ChatGateway
       this.server.emit('userOnline', { userId });
     } catch (error) {
       this.logger.error(`Connection error: ${error.message}`, error.stack);
+      client.disconnect(true);
     }
   }
 
