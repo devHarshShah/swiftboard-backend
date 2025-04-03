@@ -20,7 +20,7 @@ RUN chmod +x ./scripts/*.sh
 
 # Generate Prisma client and build the application
 RUN npx prisma generate
-RUN pnpm build
+RUN npm run build
 
 # Production stage
 FROM node:20-alpine AS production
