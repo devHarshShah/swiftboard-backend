@@ -22,6 +22,10 @@ RUN chmod +x ./scripts/*.sh
 RUN npx prisma generate
 RUN npm run build
 
+# Verify that Prisma directories exist
+RUN ls -la /app/node_modules/.prisma || echo "Prisma directory does not exist"
+RUN ls -la /app/node_modules/@prisma || echo "Prisma directory does not exist"
+
 # Production stage
 FROM node:20-alpine AS production
 
@@ -49,8 +53,16 @@ RUN pnpm install --frozen-lockfile --prod
 
 # Copy built application files
 COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
-COPY --from=builder --chown=appuser:appgroup /app/node_modules/.prisma ./node_modules/.prisma
+
+# Copy Prisma directories if they exist (with fallback logic)
+COPY --from=builder --chown=appuser:appgroup /app/node_modules/.prisma* ./node_modules/./
 COPY --from=builder --chown=appuser:appgroup /app/node_modules/@prisma ./node_modules/@prisma
+
+# Alternative approach: generate Prisma client in production stage
+RUN if [ ! -d "./node_modules/.prisma" ]; then \
+      echo "Prisma directory not found in builder stage, generating in production stage" && \
+      npx prisma generate; \
+    fi
 
 # Expose application port
 EXPOSE 8000
