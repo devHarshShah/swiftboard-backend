@@ -66,32 +66,6 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 sudo rm -f /var/www/html/.well-known/acme-challenge/test
 
-# Set up SSL for the domain
-echo "Setting up SSL certificate..."
-# Stop Nginx temporarily to free up port 80
-sudo systemctl stop nginx
-
-# Use standalone mode for better reliability
-sudo certbot certonly --standalone -d "$DOMAIN" || {
-  echo "SSL certificate generation failed!"
-  echo "This could be due to:"
-  echo "  1. AWS security group not allowing inbound HTTP traffic (port 80)"
-  echo "  2. DNS propagation not complete yet (can take up to 24 hours)"
-  echo "  3. Rate limits with Let's Encrypt"
-  echo ""
-  echo "Detailed error information may be found in /var/log/letsencrypt/letsencrypt.log"
-  echo ""
-  echo "Continuing without SSL for now. You can run the following command later to retry:"
-  echo "sudo systemctl stop nginx && sudo certbot certonly --standalone -d $DOMAIN && sudo systemctl start nginx"
-  echo ""
-  read -p "Continue deployment without SSL? (y/n) " -n 1 -r
-  echo
-  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    sudo systemctl start nginx
-    exit 1
-  fi
-}
-
 # Start Nginx back up
 sudo systemctl start nginx
 
@@ -107,7 +81,7 @@ fi
 
 # Start the containers
 echo "Starting Docker containers..."
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.yml up -d
 
 echo "Deployment completed!"
 if [ $? -eq 0 ]; then
