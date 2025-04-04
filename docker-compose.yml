@@ -78,37 +78,6 @@ services:
           cpus: '1'
           memory: 1G
 
-  nginx:
-    image: nginx:1.25-alpine
-    container_name: swiftboard-nginx-prod
-    restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - ./nginx/ssl:/etc/nginx/ssl
-      - nginx_cache_prod:/var/cache/nginx
-    networks:
-      - swiftboard-network-prod
-    security_opt:
-      - no-new-privileges:true
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'wget',
-          '--no-verbose',
-          '--tries=1',
-          '--spider',
-          'http://localhost/health',
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
 networks:
   swiftboard-network-prod:
     driver: bridge
@@ -123,5 +92,3 @@ volumes:
     name: swiftboard-postgres-data-prod
   redis_data_prod:
     name: swiftboard-redis-data-prod
-  nginx_cache_prod:
-    name: swiftboard-nginx-cache-prod
