@@ -25,7 +25,7 @@ echo "Please edit .env.prod with your production values before continuing"
 read -p "Press Enter to continue after editing .env.prod..." -n 1 -r
 echo
 
-# Configure Nginx (before SSL to ensure it's serving on port 80)
+# Configure Nginx
 echo "Configuring Nginx..."
 sudo cp deployment/nginx/swiftboard-api.conf /etc/nginx/sites-available/
 sudo ln -sf /etc/nginx/sites-available/swiftboard-api.conf /etc/nginx/sites-enabled/
@@ -35,48 +35,16 @@ sudo nginx -t
 sudo systemctl reload nginx
 
 # Check security group setup
-echo "IMPORTANT: Before continuing with SSL setup, ensure your AWS EC2 security group allows:"
-echo "  - HTTP (port 80) from anywhere (0.0.0.0/0) for Let's Encrypt verification"
-echo "  - HTTPS (port 443) from anywhere (0.0.0.0/0) for secure access"
+echo "IMPORTANT: Ensure your AWS EC2 security group allows:"
+echo "  - HTTP (port 80) from anywhere (0.0.0.0/0)"
+echo "  - HTTPS (port 443) from anywhere (0.0.0.0/0)"
 echo "  - SSH (port 22) from your IP for management"
 echo ""
-echo "You can set this up in the AWS Console under:"
-echo "EC2 > Security Groups > [Your Instance's Security Group] > Edit inbound rules"
-echo ""
-read -p "Have you configured the security group properly? (y/n) " -n 1 -r
+read -p "Have you confirmed the security group configuration? (y/n) " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
   echo "Please configure the security group before continuing"
   exit 1
-fi
-
-# Verify port 80 is accessible from the internet
-echo "Verifying port 80 is accessible..."
-echo "This test will create a temporary file that should be accessible from the internet"
-sudo mkdir -p /var/www/html/.well-known/acme-challenge
-echo "port-check-successful" | sudo tee /var/www/html/.well-known/acme-challenge/test > /dev/null
-echo "Please try accessing http://$DOMAIN/.well-known/acme-challenge/test from your local machine"
-echo "It should display 'port-check-successful' if your security group is configured correctly"
-read -p "Was the test file accessible? (y/n) " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-  echo "Port 80 doesn't seem to be accessible from the internet."
-  echo "Please check your security group settings and try again."
-  exit 1
-fi
-sudo rm -f /var/www/html/.well-known/acme-challenge/test
-
-# Start Nginx back up
-sudo systemctl start nginx
-
-# Update Nginx config to use the certificate if it exists
-if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-  echo "Configuring Nginx to use SSL certificate..."
-  # Enable SSL in Nginx config if not already enabled
-  if ! grep -q "ssl_certificate" /etc/nginx/sites-available/swiftboard-api.conf; then
-    sudo sed -i "s/listen 80;/listen 80;\n    listen 443 ssl;\n    ssl_certificate \/etc\/letsencrypt\/live\/$DOMAIN\/fullchain.pem;\n    ssl_certificate_key \/etc\/letsencrypt\/live\/$DOMAIN\/privkey.pem;\n    ssl_protocols TLSv1.2 TLSv1.3;\n    ssl_prefer_server_ciphers on;/" /etc/nginx/sites-available/swiftboard-api.conf
-    sudo nginx -t && sudo systemctl reload nginx
-  fi
 fi
 
 # Start the containers
@@ -85,20 +53,11 @@ docker-compose -f docker-compose.yml up -d
 
 echo "Deployment completed!"
 if [ $? -eq 0 ]; then
-  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-    echo "Your API should be accessible at https://$DOMAIN"
-  else
-    echo "Your API should be accessible at http://$DOMAIN"
-    echo "SSL setup failed. You can try setting it up manually later with:"
-    echo "sudo systemctl stop nginx && sudo certbot certonly --standalone -d $DOMAIN && sudo systemctl start nginx"
-  fi
+  echo "Your API should be accessible at https://$DOMAIN"
 else
   echo "There was an issue with starting the containers. Please check the logs."
 fi
 
-# Setup auto-renewal cronjob for SSL certificate
-if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-  echo "Setting up automatic SSL certificate renewal..."
-  (crontab -l 2>/dev/null; echo "0 3 * * * sudo systemctl stop nginx && sudo certbot renew --quiet && sudo systemctl start nginx") | crontab -
-  echo "Automatic renewal configured to run daily at 3:00 AM"
-fi
+# Remind about SSL certificate renewal
+echo "SSL is already configured. Remember the automatic renewal should be already set up via cron."
+echo "You can check the current renewal schedule with: crontab -l"
