@@ -37,6 +37,11 @@
   
   # Copy only necessary files
   COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
+  
+  # Modify package.json to remove Husky prepare script for production
+  RUN sed -i 's/\"prepare\": \"is-ci || husky install\"/\"prepare\": \"echo Skipping husky in production\"/g' package.json
+  
+  # Copy application files
   COPY --from=builder /app/scripts ./scripts
   COPY --from=builder /app/prisma ./prisma
   COPY --from=builder /app/dist ./dist
