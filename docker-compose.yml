@@ -52,8 +52,8 @@ services:
         condition: service_healthy
     env_file:
       - .env.prod
-    expose:
-      - '8000'
+    ports:
+      - '8000:8000'
     healthcheck:
       test:
         [
